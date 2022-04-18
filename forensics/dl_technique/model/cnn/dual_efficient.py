@@ -10,9 +10,9 @@ class Identity(nn.Module):
     def forward(self, x):
         return x
 
-class EfficientDual(nn.Module):
+class DualEfficient(nn.Module):
     def __init__(self):
-        super(EfficientDual, self).__init__()
+        super(DualEfficient, self).__init__()
         self.efficient3 = EfficientNet.from_pretrained('efficientnet-b0', num_classes=1,in_channels = 3)
         self.efficient3._dropout = Identity()
         self.efficient3._fc = Identity()
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=1,in_channels = 1)
     # model = EfficientDual()
     # model = EfficientNet.from_pretrained('efficientnet-b0', num_classes=1,in_channels = 3)
-    model = EfficientDual()
+    model = DualEfficient()
     import torchsummary
     # torchsummary.summary(model,(1,128,128))
     # model2 = nn.Sequential(*(list(model.children())[:-3]))
