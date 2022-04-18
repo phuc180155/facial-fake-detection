@@ -300,6 +300,8 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
                 if patience == 0:
                     print('Early stopping. Best val loss and val accuracy: {:.3f}, {:.3f}'.format(val_loss, best_acc))
                     break
+        elif es_metric == "none":
+            pass
     return
 
 #############################################
@@ -345,7 +347,7 @@ def eval_dual_stream(model, dataloader_val,device,criterion,adj_brightness=1.0, 
     return val_loss, val_accuracy, accuracy, precision, recall, f1
 
 def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', image_size=256, lr=3e-4, \
-              batch_size=16, num_workers=8, checkpoint='', resume='', epochs=20, eval_per_iters=-1, \
+              batch_size=16, num_workers=8, checkpoint='', resume='', epochs=30, eval_per_iters=-1, \
               adj_brightness=1.0, adj_contrast=1.0, es_metric='val_loss', es_patience=5, model_name="dual-efficient", args_txt=""):
 
     # Early stopping epochs
@@ -528,6 +530,8 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', i
                 if patience == 0:
                     print('Early stopping. Best val loss and val accuracy: {:.4f}, {:.4f}'.format(val_loss, best_acc))
                     break
+        elif es_metric == "none":
+            pass
     return
 
 

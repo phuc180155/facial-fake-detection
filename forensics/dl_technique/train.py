@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=64, help="batch size")
     parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
     parser.add_argument('--n_epochs', type=int, default=25, help='number of epochs to train for')
-    parser.add_argument('--image_size', type=int, default=256, help='the height / width of the input image to network')
+    parser.add_argument('--image_size', type=int, default=128, help='the height / width of the input image to network')
     parser.add_argument('--workers', type=int, default=0, help='number wokers for dataloader ')
     parser.add_argument('--checkpoint',default = None,required=True, help='path to checkpoint ')
     parser.add_argument('--gpu_id',type=int, default = 0, help='GPU id ')
@@ -28,7 +28,13 @@ def parse_args():
     
     ######################## CNN architecture:
     parser_xception = sub_parser.add_parser('xception', help='XceptionNet')
-    parser_dual_eff = sub_parser.add_parser('efficient_dual', help="Efficient-Frequency Net")
+    parser_dual_eff = sub_parser.add_parser('dual_efficient', help="Efficient-Frequency Net")
+    # Ablation study
+    parser_dual_attn_eff = sub_parser.add_parser('dual_attn_efficient', help="Ablation Study")
+    parser_dual_eff_vit.add_argument("--patch_size",type=int,default=7,help="patch_size")
+    parser_dual_eff_vit.add_argument("--version",type=str, default="cross_attention-freq-add", required=True, help="Some changes in model")
+    parser_dual_eff_vit.add_argument("--weight", type=float, default=1, help="Weight for frequency vectors")
+    parser_dual_eff_vit.add_argument("--freeze", type=int, default=0, help="Freeze backbone")
     
     ######################## Vision transformer architecture:
     parser.add_argument('--dim',type=int, default = 1024, help='dim of embeding')
@@ -99,11 +105,11 @@ if __name__ == "__main__":
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="exception", args_txt=args_txt)
     
-    elif model == "efficient_dual":
+    elif model == "dual_efficiet":
         from module.train_torch import train_dual_stream
-        from model.cnn.efficient_dual import EfficientDual
+        from model.cnn.dual_efficient import DualEfficient
         
-        model = EfficientDual()
+        model = DualEfficient()
         args_txt = "imgsize_{}_lr_{}_batchsize_{}_es_{}_loss_{}".format(args.image_size, args.lr, args.batch_size, args.es_metric,args.loss)
         criterion = [args.loss]
         if args.gamma:
@@ -113,6 +119,33 @@ if __name__ == "__main__":
         train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-efficient", args_txt=args_txt)
+
+    elif model == "dual_attn_efficient":
+        from module.train_torch import train_dual_stream
+        from model.cnn.dual_crossattn_efficient import DualCrossAttnEfficient
+        
+        dropout = 0.15
+        model = DualCrossAttnEfficient(
+            image_size=args.image_size,
+            patch_size=args.patch_size,
+            num_classes=1,
+            dim=args.dim,
+            mlp_dim=args.mlp_dim,
+            dropout=dropout,
+            version=args.version,
+            weight=args.weight,
+            freeze=args.freeze
+        )
+        
+        args_txt = "ver_{}_weight_{}_imgsize_{}_lr_{}_patchsize_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
+        criterion = [args.loss]
+        if args.gamma:
+            args_txt += "gamma_{}".format(args.gamma)
+            criterion.append(args.gamma)
+        
+        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+                           batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
+                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-attn-efficient", args_txt=args_txt)
         
     elif model == "efficient_vit":
         from module.train_torch import train_image_stream
