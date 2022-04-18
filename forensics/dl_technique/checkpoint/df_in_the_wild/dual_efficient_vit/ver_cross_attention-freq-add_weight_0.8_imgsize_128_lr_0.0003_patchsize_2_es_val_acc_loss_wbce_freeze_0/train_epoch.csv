@@ -1,0 +1,5 @@
+Epoch, Train loss, Train accuracy, Validation loss, Validation accuracy, Validation precision, Validation recall, Validation F1-Score
+1,0.0885,0.9678,0.8879,0.6950,0.9040,0.5905,0.7143
+2,0.1483,0.9404,0.7960,0.7873,0.8730,0.7849,0.8266
+3,0.0467,0.9831,0.8392,0.7483,0.9334,0.6573,0.7714
+4,0.0711,0.9736,0.8191,0.7600,0.9317,0.6781,0.7849
