@@ -31,10 +31,10 @@ def parse_args():
     parser_dual_eff = sub_parser.add_parser('dual_efficient', help="Efficient-Frequency Net")
     # Ablation study
     parser_dual_attn_eff = sub_parser.add_parser('dual_attn_efficient', help="Ablation Study")
-    parser_dual_eff_vit.add_argument("--patch_size",type=int,default=7,help="patch_size")
-    parser_dual_eff_vit.add_argument("--version",type=str, default="cross_attention-freq-add", required=True, help="Some changes in model")
-    parser_dual_eff_vit.add_argument("--weight", type=float, default=1, help="Weight for frequency vectors")
-    parser_dual_eff_vit.add_argument("--freeze", type=int, default=0, help="Freeze backbone")
+    parser_dual_attn_eff.add_argument("--patch_size",type=int,default=7,help="patch_size")
+    parser_dual_attn_eff.add_argument("--version",type=str, default="cross_attention-freq-add", required=True, help="Some changes in model")
+    parser_dual_attn_eff.add_argument("--weight", type=float, default=1, help="Weight for frequency vectors")
+    parser_dual_attn_eff.add_argument("--freeze", type=int, default=0, help="Freeze backbone")
     
     ######################## Vision transformer architecture:
     parser.add_argument('--dim',type=int, default = 1024, help='dim of embeding')
