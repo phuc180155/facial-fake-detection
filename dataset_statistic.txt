@@ -12,7 +12,7 @@ celeb-df
 ff:
 	+ train: 466 318
 	+ test: 116 582
-ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
 server:
 	+ df_in_the_wild:
 		+ train: 
