@@ -69,13 +69,14 @@ def check_synchronization_between_servers(dataset_path: str, train_set: List[str
     cur_test_set = glob(join(dataset_path, 'test', '*/*'))
     cur_sets = [cur_train_set, cur_test_set]
     
-    txt_train_set = train_set.extend(val_set)
+    txt_train_set = train_set + val_set
     txt_test_set = test_set
     txt_sets = [txt_train_set, txt_test_set]
     
-    assert len(txt_train_set) == len(cur_train_set), 'Correct! Train length is matched.'
-    assert len(txt_test_set) == len(cur_test_set), 'May be test dataset of this benchmark: {} - is removed!'.format(find_dataset_name(dataset_path))
+    # assert len(txt_train_set) == len(cur_train_set), 'Correct! Train length is matched.'
+    # assert len(txt_test_set) == len(cur_test_set), 'May be test dataset of this benchmark: {} - is removed!'.format(find_dataset_name(dataset_path))
     
+    ret = True
     for i in range(2):
         cur_set = cur_sets[i]
         txt_set = txt_sets[i]
@@ -94,21 +95,28 @@ def check_synchronization_between_servers(dataset_path: str, train_set: List[str
         for path, v in cur_dict.items():
             if v == -1:
                 print("{} | in txt-file not exists in current-device!".format(path))
+                ret = False
             if v == 0:
                 if phase == 'train':
                     print("{} | in current-device not exists in txt_file!".format(path))
+                    ret = False
                 cnt_lack += 1
         print('Lack {} image'.format(cnt_lack))
+    return ret
                 
 def make_dataset_from_txt_file(dataset_path: str, train_file: str, test_file: str, val_file: str, check_sync=True, sync=False):
     txt_train_set = get_image_from_txt_file(train_file, join(dataset_path, 'train'))
     txt_val_set = get_image_from_txt_file(val_file, join(dataset_path, 'train'))
     txt_test_set = get_image_from_txt_file(test_file, join(dataset_path, 'test'))
+    
+    accepted = True
     if check_sync:
-        check_synchronization_between_servers(dataset_path, txt_train_set, txt_val_set, txt_test_set)
+        ret = check_synchronization_between_servers(dataset_path, txt_train_set, txt_val_set, txt_test_set)
+        accepted = ret
+        print("{} synchronize! \n===================\n".format("accepted" if ret else "denied"))
         
     # Make dataset
-    if sync:
+    if sync and accepted:
         # Move val
         val_dir = join(dataset_path, 'val')
         if not osp.exists(val_dir):
@@ -261,6 +269,6 @@ if __name__ == '__main__':
         aggregate_fake_ff_set(args.dataset_path)
         
     statisticize_dataset(args.dataset_path)
-    log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
-    # if args.make_dataset_from_txt_file:
-    #     make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
+    # log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
+    if args.make_dataset_from_txt_file:
+        make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
