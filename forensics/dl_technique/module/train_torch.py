@@ -82,6 +82,7 @@ def eval_image_stream(model ,dataloader_val,device,criterion,adj_brightness=1.0,
     val_loss = 0
     val_accuracy = 0
     model.eval()
+    begin = time.time()
     y_label = []
     y_pred_label = []
     with torch.no_grad():
@@ -115,6 +116,8 @@ def eval_image_stream(model ,dataloader_val,device,criterion,adj_brightness=1.0,
     f1 = 2.0 * recall * precision / (recall + precision)
     # print(classification_report(y_label,y_pred_label))
     model.train()
+    eval_time = time.time() - begin
+    print("Number of samples in val dataset: ", len(dataloader_val.dataset), "  ---  Inference 1 image in {:.4f} s".format(1.0 * eval_time / len(dataloader_val.dataset)))
     return val_loss, val_accuracy, accuracy, precision, recall, f1
 
 def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', image_size=256, lr=3e-4, \
@@ -314,8 +317,9 @@ def eval_dual_stream(model, dataloader_val,device,criterion,adj_brightness=1.0, 
     # Find other metrics
     y_label = []
     y_pred_label = []
+    begin = time.time()
     with torch.no_grad():
-        for inputs, fft_imgs, labels in dataloader_val:
+        for inputs, fft_imgs, labels in tqdm(dataloader_val):
             y_label.extend(labels.cpu().numpy().astype(np.float64))
             # Push to device
             inputs, fft_imgs, labels = inputs.float().to(device), fft_imgs.float().to(device), labels.float().to(device)
@@ -343,6 +347,9 @@ def eval_dual_stream(model, dataloader_val,device,criterion,adj_brightness=1.0, 
     precision = precision_score(y_label, y_pred_label)
     recall = recall_score(y_label, y_pred_label)
     f1 = 2.0 * recall * precision / (recall + precision)
+    
+    eval_time = time.time() - begin
+    print("Number of samples in val dataset: ", len(dataloader_val.dataset), "  ---  Inference 1 image in {:.4f} s".format(1.0 * eval_time / len(dataloader_val.dataset)))
     # print(classification_report(y_label,y_pred_label))
     return val_loss, val_accuracy, accuracy, precision, recall, f1
 
@@ -533,6 +540,3 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', i
         elif es_metric == "none":
             pass
     return
-
-
-
