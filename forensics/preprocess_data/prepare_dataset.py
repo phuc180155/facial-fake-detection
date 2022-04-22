@@ -16,11 +16,11 @@ import json
 
 random.seed(0)
 
-def log_dataset_statistic(dataset_path: str, dataset_name: str, statistic_dir: str):
+def log_dataset_statistic(dataset_path: str, dataset_name: str, statistic_dir: str, device_name: str):
     dsets = [join(dataset_path, 'train'), join(dataset_path, 'test'), join(dataset_path, 'val')]
     for dset in dsets:
         print(dset)
-        with open(join(statistic_dir, "{}_{}.txt".format(dataset_name, osp.basename(dset))), 'w') as f:
+        with open(join(statistic_dir, "{}_{}_{}.txt".format(device_name, dataset_name, osp.basename(dset))), 'w') as f:
             img_paths = glob(join(dset, "*/*"))
             for img_path in tqdm(img_paths):
                 info = img_path.split("/")
@@ -241,6 +241,7 @@ def find_dataset_name(dataset_path: str):
          
 def parse_args():
     parser = argparse.ArgumentParser(description="Filter noise image by another face detection module")
+    parser.add_argument("--device_name", type=str, default='server61')
     #
     parser.add_argument("--dataset_path", type=str, required=True, help="path to dataset")
     parser.add_argument("--make_validation_set", type=int, default=0, help="make validation set from train set (maintain test samples) or not")
@@ -271,7 +272,7 @@ if __name__ == '__main__':
         aggregate_fake_ff_set(args.dataset_path)
         
     statisticize_dataset(args.dataset_path)
-    # log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
-    if args.make_dataset_from_txt_file:
-        make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
-        statisticize_dataset(args.dataset_path)
+    log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic", args.device_name)
+    # if args.make_dataset_from_txt_file:
+    #     make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
+    #     statisticize_dataset(args.dataset_path)
