@@ -73,7 +73,7 @@ def check_synchronization_between_servers(dataset_path: str, train_set: List[str
     txt_test_set = test_set
     txt_sets = [txt_train_set, txt_test_set]
     
-    # assert len(txt_train_set) == len(cur_train_set), 'Correct! Train length is matched.'
+    assert len(txt_train_set) == len(cur_train_set), 'Correct! Train length is not matched.'
     # assert len(txt_test_set) == len(cur_test_set), 'May be test dataset of this benchmark: {} - is removed!'.format(find_dataset_name(dataset_path))
     
     ret = True
@@ -82,6 +82,7 @@ def check_synchronization_between_servers(dataset_path: str, train_set: List[str
         txt_set = txt_sets[i]
         phase = 'train' if 'train' in cur_set[0] else 'test'
         print("Check phase {} in dataset {}".format(phase, find_dataset_name(dataset_path)))
+        print(cur_set[0], txt_set[0])
          
         cur_dict = {path: 0 for path in cur_set}
         for path in tqdm(txt_set):
@@ -98,7 +99,8 @@ def check_synchronization_between_servers(dataset_path: str, train_set: List[str
                 ret = False
             if v == 0:
                 if phase == 'train':
-                    print("{} | in current-device not exists in txt_file!".format(path))
+                    # print("{} | in current-device not exists in txt_file!".format(path))
+                    print(path)
                     ret = False
                 cnt_lack += 1
         print('Lack {} image'.format(cnt_lack))
@@ -202,9 +204,9 @@ def aggregate_fake_ff_set(ff_path: str):
     Args:
         ff_path (str): path to ff dataset
     """
-    train_ff = join(ff_path, 'train')
-    val_ff = join(ff_path, 'val')
-    test_ff = join(ff_path, 'test')
+    train_ff = join(ff_path, 'test')
+    val_ff = join(ff_path, 'train')
+    test_ff = join(ff_path, 'val')
     
     ff_set = [train_ff, val_ff, test_ff]
     for dset in ff_set:
@@ -272,3 +274,4 @@ if __name__ == '__main__':
     # log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
     if args.make_dataset_from_txt_file:
         make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
+        statisticize_dataset(args.dataset_path)
