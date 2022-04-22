@@ -114,7 +114,11 @@ def make_dataset_from_txt_file(dataset_path: str, train_file: str, test_file: st
         if not osp.exists(val_dir):
             os.mkdir(val_dir)
         for img_path in txt_val_set:
-            shutil.move(img_path, val_dir)
+            cls = img_path.split('/')[-2]
+            cls_dir = join(val_dir, cls)
+            if not osp.exists(cls_dir):
+                os.mkdir(cls_dir)
+            shutil.move(img_path, cls_dir)
             
         # Delete test:
         cur_test_set = glob(join(dataset_path, 'test', '*/*'))
@@ -210,6 +214,8 @@ def aggregate_fake_ff_set(ff_path: str):
                 shutil.move(new_path, fake_agg_dir)
 
 def find_dataset_name(dataset_path: str):
+    if 'component' in dataset_path:
+        return 'ff_' + dataset_path.split('/')[-1]
     if 'ff' in dataset_path:
         return 'ff'
     if 'UADFV' in dataset_path:
@@ -255,6 +261,6 @@ if __name__ == '__main__':
         aggregate_fake_ff_set(args.dataset_path)
         
     statisticize_dataset(args.dataset_path)
-    # log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
-    if args.make_dataset_from_txt_file:
-        make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
+    log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
+    # if args.make_dataset_from_txt_file:
+    #     make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
