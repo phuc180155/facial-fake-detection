@@ -225,14 +225,24 @@ def find_dataset_name(dataset_path: str):
          
 def parse_args():
     parser = argparse.ArgumentParser(description="Filter noise image by another face detection module")
+    #
     parser.add_argument("--dataset_path", type=str, required=True, help="path to dataset")
     parser.add_argument("--make_validation_set", type=int, default=0, help="make validation set from train set (maintain test samples) or not")
     parser.add_argument("--num_real_val", type=int, default=0)
     parser.add_argument("--num_fake_val", type=int, default=0)
+    #
     parser.add_argument("--delete_test_set", type=int, default=0, help="Delete some samples in test set")
     parser.add_argument("--num_real_test", type=int, default=0)
     parser.add_argument("--num_fake_test", type=int, default=0)
+    #
     parser.add_argument("--agg_fake_ff_set", type=int, default=0, help="Aggregate fake samples of ff dataset")
+    #
+    parser.add_argument("--make_dataset_from_txt_file", type=int, default=0, help="Synchronize among servers")
+    parser.add_argument("--train_file", type=str)
+    parser.add_argument("--test_file", type=str)
+    parser.add_argument("--val_file", type=str)
+    parser.add_argument("--check_sync", type=int, default=1)
+    parser.add_argument("--sync", type=int, default=0)
     return parser.parse_args()
     
 if __name__ == '__main__':
@@ -245,4 +255,6 @@ if __name__ == '__main__':
         aggregate_fake_ff_set(args.dataset_path)
         
     statisticize_dataset(args.dataset_path)
-    log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
+    # log_dataset_statistic(args.dataset_path, find_dataset_name(args.dataset_path), "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/preprocess_data/data_statistic")
+    if args.make_dataset_from_txt_file:
+        make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
