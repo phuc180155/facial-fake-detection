@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from backbone.efficient_net.model import EfficientNet
+from ..backbone.efficient_net.model import EfficientNet
 
 class Identity(nn.Module):
     def __init__(self):

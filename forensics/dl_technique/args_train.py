@@ -10,6 +10,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Deepfake detection")
     parser.add_argument('--train_dir', type=str, default="", help="path to train data")
     parser.add_argument('--val_dir', type=str, default="", help="path to validation data")
+    parser.add_argument('--test_dir', type=str, default="", help="path to test data")
     parser.add_argument('--batch_size', type=int, default=64, help="batch size")
     parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
     parser.add_argument('--n_epochs', type=int, default=25, help='number of epochs to train for')
@@ -28,6 +29,7 @@ def parse_args():
     
     ######################## CNN architecture:
     parser_xception = sub_parser.add_parser('xception', help='XceptionNet')
+    parser_meso4 = sub_parser.add_parser('meso4', help='MesoNet')
     parser_dual_eff = sub_parser.add_parser('dual_efficient', help="Efficient-Frequency Net")
     # Ablation study
     parser_dual_attn_eff = sub_parser.add_parser('dual_attn_efficient', help="Ablation Study")
@@ -78,7 +80,6 @@ if __name__ == "__main__":
     # Config device
     gpu_id = 0 if int(args.gpu_id) >=0 else -1
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
-    print(gpu_id)
     
     # Adjustness:
     adj_brightness = float(args.adj_brightness)
@@ -89,34 +90,49 @@ if __name__ == "__main__":
         os.makedirs(args.checkpoint)
     # with open(os.path.join(args.checkpoint, 'args.txt'), 'w') as f:
     #     json.dump(args.__dict__, f, indent=2)
+    
         
     ################# TRAIN #######################
     if model == "xception":
         from module.train_torch import train_image_stream
         from model.cnn.xception import xception
         model = xception(pretrained=True)
-        args_txt = "imgsize_{}_lr_{}_batchsize_{}_es_{}_loss_{}".format(args.image_size, args.lr, args.batch_size, args.es_metric, args.loss)
+        args_txt = "lr_{}_batch_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.es_metric, args.loss)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
             criterion.append(args.gamma)
             
-        train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+        train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir, image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="exception", args_txt=args_txt)
     
-    elif model == "dual_efficiet":
+    elif model == "meso4":
+        from model.cnn.mesonet import mesonet
+        from module.train_torch import train_image_stream
+        model = mesonet(image_size=args.image_size)
+        args_txt = "lr_{}_batch_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.es_metric, args.loss)
+        criterion = [args.loss]
+        if args.gamma:
+            args_txt += "gamma_{}".format(args.gamma)
+            criterion.append(args.gamma)
+            
+        train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir, image_size=args.image_size, lr=args.lr,\
+                           batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
+                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="meso4", args_txt=args_txt)
+        
+    elif model == "dual_efficient":
         from module.train_torch import train_dual_stream
         from model.cnn.dual_efficient import DualEfficient
         
         model = DualEfficient()
-        args_txt = "imgsize_{}_lr_{}_batchsize_{}_es_{}_loss_{}".format(args.image_size, args.lr, args.batch_size, args.es_metric,args.loss)
+        args_txt = "lr_{}_batch_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.es_metric,args.loss)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
             criterion.append(args.gamma)
             
-        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir, image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-efficient", args_txt=args_txt)
 
@@ -137,13 +153,13 @@ if __name__ == "__main__":
             freeze=args.freeze
         )
         
-        args_txt = "ver_{}_weight_{}_imgsize_{}_lr_{}_patchsize_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
+        args_txt = "v_{}_w_{}_lr_{}_patch_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
             criterion.append(args.gamma)
         
-        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir,  image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-attn-efficient", args_txt=args_txt)
         
@@ -166,13 +182,13 @@ if __name__ == "__main__":
             emb_dropout=emb_dropout,
         )
         
-        args_txt = "imgsize_{}_lr_{}_patchsize_{}_es_{}_loss_{}".format(args.image_size, args.lr, args.patch_size, args.es_metric, args.loss)
+        args_txt = "lr_{}_patch_h_{}_d_{}_es_{}_loss_{}".format(args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
             criterion.append(args.gamma)
         
-        train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+        train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir,  image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="exception", args_txt=args_txt)
         
@@ -197,13 +213,13 @@ if __name__ == "__main__":
             freeze=args.freeze
         )
         
-        args_txt = "ver_{}_weight_{}_imgsize_{}_lr_{}_patchsize_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
+        args_txt = "v_{}_w_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
             criterion.append(args.gamma)
         
-        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir,  image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-efficient-vit", args_txt=args_txt)
         
@@ -228,12 +244,12 @@ if __name__ == "__main__":
             freeze=args.freeze
         )
         
-        args_txt = "ver_{}_weight_{}_imgsize_{}_lr_{}_patchsize_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
+        args_txt = "v_{}_w_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
             criterion.append(args.gamma)
         
-        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, image_size=args.image_size, lr=args.lr,\
+        train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir,  image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-efficient-vit", args_txt=args_txt)
