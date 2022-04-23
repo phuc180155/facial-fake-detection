@@ -57,7 +57,7 @@ def get_image_from_txt_file(txt_file: str, head_path: str):
     dset = []
     with open(txt_file, 'r') as f:
         lines = f.readlines()
-        for line in tqdm(lines):
+        for line in lines:
             line = line.strip()
             if line == '':
                 continue
@@ -238,12 +238,55 @@ def find_dataset_name(dataset_path: str):
         return 'timit'
     if 'Celeb-DF' in dataset_path:
         return 'celeb'
-         
+
+def check_equal(file_1: str, file_2: str):
+    lst_1 = get_image_from_txt_file(file_1, "")
+    lst_2 = get_image_from_txt_file(file_2, "")
+    dict_1 = {item_1: 1 for item_1 in lst_1}
+    for item_2 in lst_2:
+        try:
+            if dict_1[item_2] == 1:
+                dict_1[item_2] = 2  # item 2 is in list 1
+        except:
+            dict_1[item_2] = 0      # item 2 is not in list 1
+    
+    ret = True
+    for item, v in dict_1.items():
+        if v == 0:
+            ret = False
+        elif v == 1:
+            ret = False
+        elif v == 2:
+            continue
+    return ret
+
+def check_synchronization(statistic_dir: str):
+    files = os.listdir(statistic_dir)
+    visited = {file: 0 for file in files}
+    for file in files:
+        if not visited[file]:
+            file_1 = join(statistic_dir, file)
+            server_1 = file.split('_')[0]
+            server_2 = 'server61' if server_1 == '8tcp' else '8tcp'
+            file_2 = file_1.replace(server_1, server_2)
+            if osp.basename(file_2) not in files:
+                print("WRONG FILE!")
+                return
+            visited[osp.basename(file_1)] = 1
+            visited[osp.basename(file_2)] = 1
+            ret = check_equal(file_1, file_2)
+            if not ret:
+                print("File {} and {} has wrong!".format(file_1, file_2))
+                break
+            else:
+                print("File {} and {} are ok!".format(file_1, file_2))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Filter noise image by another face detection module")
     parser.add_argument("--device_name", type=str, default='server61')
     #
-    parser.add_argument("--dataset_path", type=str, required=True, help="path to dataset")
+    parser.add_argument("--dataset_path", type=str, required=False, help="path to dataset")
     parser.add_argument("--make_validation_set", type=int, default=0, help="make validation set from train set (maintain test samples) or not")
     parser.add_argument("--num_real_val", type=int, default=0)
     parser.add_argument("--num_fake_val", type=int, default=0)
@@ -276,3 +319,4 @@ if __name__ == '__main__':
     # if args.make_dataset_from_txt_file:
     #     make_dataset_from_txt_file(args.dataset_path, args.train_file, args.test_file, args.val_file, check_sync=bool(args.check_sync), sync=bool(args.sync))
     #     statisticize_dataset(args.dataset_path)
+    # check_synchronization("/home/phucnp/facial-fake-detection/forensics/preprocess_data/data_statistic")
