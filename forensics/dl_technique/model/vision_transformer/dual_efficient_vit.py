@@ -5,20 +5,20 @@ from torchsummary import summary
 from einops import rearrange
 
 import sys
-from ..backbone.efficient_net.model import EfficientNet
+from model.backbone.efficient_net.model import EfficientNet
 
 import re
 import torch.nn.functional as F
 
 import re, math
-from .vit import Transformer
+from model.vision_transformer.vit import Transformer
 
 
 class DualEfficientViT(nn.Module):
     def __init__(self, channels=1280,\
                  image_size=224,patch_size=7,num_classes=1,dim=1024,\
                  depth=6,heads=8,mlp_dim=2048,\
-                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15,version="cross_attention-spatial-cat",weight=0.5,freeze=0):  
+                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15,version="cross_attention-spatial-cat",weight=0.5,freeze=0, pool='cls'):  
         super(DualEfficientViT, self).__init__()
 
         self.image_size = image_size
@@ -32,6 +32,8 @@ class DualEfficientViT(nn.Module):
         self.dim_head = dim_head
         self.dropout_value = dropout
         self.emb_dropout = emb_dropout
+        self.pool = pool
+        
         self.features_size = {
             128: (4, 4),
             224: (7, 7),
@@ -222,7 +224,7 @@ class DualEfficientViT(nn.Module):
         x += self.pos_embedding
         x = self.dropout(x)
         x = self.transformer(x)
-        x = self.to_cls_token(x[:, 0])
+        x = self.to_cls_token(x.mean(dim = 1) if self.pool == 'mean' else x[:, 0])
         x = self.mlp_head(x)
         x = self.sigmoid(x)
         return x

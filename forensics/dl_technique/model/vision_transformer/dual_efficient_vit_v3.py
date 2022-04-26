@@ -14,12 +14,12 @@ import re, math
 from .vit import Transformer
 
 
-class DualEfficientViTV2(nn.Module):
+class DualEfficientViT(nn.Module):
     def __init__(self, channels=1280,\
                  image_size=224,patch_size=7,num_classes=1,dim=1024,\
                  depth=6,heads=8,mlp_dim=2048,\
-                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15,version="cross_attention-spatial-cat",weight=0.5, freeze=0, pool='cls'):  
-        super(DualEfficientViTV2, self).__init__()
+                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15,version="cross_attention-spatial-cat",weight=0.5,freeze=0, pool='cls'):  
+        super(DualEfficientViT, self).__init__()
 
         self.image_size = image_size
         self.patch_size = patch_size
@@ -106,7 +106,7 @@ class DualEfficientViTV2(nn.Module):
                 extractor.load_state_dict({re.sub("^module.", "", k): v for k, v in state_dict.items()}, strict=False)
 
             if freeze:
-                # Freeze the first (num_blocks - 3) blocks and unfreeze the rest 
+            # Freeze the first (num_blocks - 3) blocks and unfreeze the rest 
                 for i in range(0, len(extractor._blocks)):
                     for index, param in enumerate(extractor._blocks[i].parameters()):
                         if i >= len(extractor._blocks) - 3:
@@ -134,15 +134,15 @@ class DualEfficientViTV2(nn.Module):
         output = torch.bmm(attn, v)
         return output, attn
 
-    def cross_attention(self, spatials, freqs):
+    def cross_attention(self, spatials, ifreqs):
         """
             spatials: (B, N, D) --> Query,
             freqs: (B, N, D) --> Key
             output: 
         """
         emb_dim = spatials.shape[2]
-        assert emb_dim == freqs.shape[2]
-        attn_outputs, attn_weights = self.scale_dot(spatials, freqs, freqs)
+        assert emb_dim == ifreqs.shape[2]
+        attn_outputs, attn_weights = self.scale_dot(spatials, ifreqs, ifreqs)
         return attn_outputs, attn_weights
 
 
@@ -150,12 +150,16 @@ class DualEfficientViTV2(nn.Module):
         p = self.patch_size
         # Extract features
         spatial_features = self.spatial_extractor.extract_features(spatial_imgs)                 # shape (batchsize, 1280, 8, 8)
-        freq_features = self.freq_extractor.extract_features(frequency_imgs)                     # shape (batchsize, 1280, 8, 8)
+        freq_features = self.freq_extractor.extract_features(frequency_imgs)                     # shape (batchsize, 1280, 8, 8)conda
+        ifreq_features = torch.log(torch.abs(torch.fft.ifft2(torch.fft.ifftshift(freq_features))) + 1e-10)  # Hơi ảo???
+        # print(ifreq_features.shape)
+        # assert(ifreq_features.shape == freq_features.shape)
         # print("Features shape: ", spatial_features.shape, freq_features.shape)
 
         # Flatten to vector:
         spatial_vectors = rearrange(spatial_features, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p, p2=p)
         freq_vectors = rearrange(freq_features, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p, p2=p)
+        ifreq_vectors = rearrange(ifreq_features, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p, p2=p)
 
         assert self.patch_dim == spatial_vectors.shape[2]
         assert self.patch_dim == freq_vectors.shape[2]
@@ -164,8 +168,28 @@ class DualEfficientViTV2(nn.Module):
         
         if "cross_attention" in self.version:          # Merge using cross-attention  
             ########## Patch embedding and add position embedding to each domain:
-            attn_outputs, attn_weights = self.cross_attention(spatial_vectors, freq_vectors)     # Shape: (), (batchsize, num_patches, num_patches)
-            out_attn = torch.bmm(attn_weights, freq_vectors)
+            # spatial_vectors = self.patch_to_embedding_1(spatial_vectors)
+            # spatial_vectors += self.pos_embedding_1
+
+            # freq_vectors = self.patch_to_embedding_2(freq_vectors)
+            # freq_vectors += self.pos_embedding_2
+
+            # ifreq_vectors = self.patch_to_embedding_2(ifreq_vectors)
+            # ifreq_vectors += self.pos_embedding_2  
+            # print("Step 2 shape: ", spatial_vectors.shape, freq_vectors.shape)  # (batchsize, num_patches, D)
+            ##########
+        
+            # Cal attn weight between ifreq and spatial vectors:
+            # Cross-attention (spatial-decoder, ifreq-encoder)
+            attn_outputs, attn_weights = self.cross_attention(spatial_vectors, ifreq_vectors)     # Shape: (), (batchsize, num_patches, num_patches)
+            if "freq" in self.version:          # Get attention in frequency domain:
+                out_attn = torch.bmm(attn_weights, freq_vectors)
+            elif "spatial" in self.version:     # Get attention in spatial domain:
+                out_attn = torch.bmm(attn_weights, ifreq_vectors)
+                ### Check correct bmm:
+                # print(torch.eq(attn_outputs, out_attn))
+            else:
+                pass
 
             # Concat or add and linear
             # print("Spatial vectors: ", spatial_vectors.shape)
@@ -196,7 +220,6 @@ class DualEfficientViTV2(nn.Module):
         # Expand classify token to batchsize and add to patch embeddings:
         cls_tokens = self.cls_token.expand(embed.shape[0], -1, -1)
         x = torch.cat((cls_tokens, embed), dim=1)   # (batchsize, num_patches+1, dim)
-        x += self.pos_embedding
         x = self.dropout(x)
         x = self.transformer(x)
         x = self.to_cls_token(x.mean(dim = 1) if self.pool == 'mean' else x[:, 0])
@@ -207,6 +230,6 @@ class DualEfficientViTV2(nn.Module):
 if __name__ == '__main__':
     x = torch.ones(32, 3, 256, 256)
     y = torch.ones(32, 1, 256, 256)
-    model_ = DualEfficientViTV2(image_size=256, patch_size=2)
+    model_ = DualEfficientViT(image_size=256, patch_size=2)
     out = model_(x, y)
     print(out.shape)
