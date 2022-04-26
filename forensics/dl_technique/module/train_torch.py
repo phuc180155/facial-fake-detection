@@ -31,6 +31,9 @@ from loss.focal_loss import FocalLoss as FL
 from loss.weightedBCE_loss import WeightedBinaryCrossEntropy as WBCE
 
 from typing import List, Tuple
+import warnings
+warnings.filterwarnings("default")
+from sklearn.exceptions import UndefinedMetricWarning
 
 def find_current_earlystopping_score(es_metric, val_loss, val_mic_acc, test_loss, test_mic_acc, test_real_f1, test_fake_f1, test_macro_f1):
     if es_metric == 'val_loss':
@@ -109,6 +112,9 @@ def define_criterion(criterion_name: List[str], num_samples: int):
         criterion = nn.BCELoss()
         print("Use binary cross entropy loss.")
     else:
+        if criterion_name[0] == 'cbce':
+            criterion = WBCE(weights=[1.0, 1.0])
+            print("Use custom binary cross entropy loss.")
         if criterion_name[0] == 'wbce':
             weight_class_0 = 0.5 * (num_samples[0] + num_samples[1]) / (num_samples[0])
             weight_class_1 = 0.5 * (num_samples[0] + num_samples[1]) / (num_samples[1])
@@ -198,14 +204,25 @@ def define_device(seed: int):
 
 def calculate_metric(y_label: List[float], y_pred_label: List[float]):
     mic_accuracy = accuracy_score(y_label, y_pred_label)
-    
-    precision_fake = precision_score(y_label, y_pred_label)
-    recall_fake = recall_score(y_label, y_pred_label)
-    f1_fake = f1_score(y_label, y_pred_label)
-    
-    precision_real = precision_score(y_label, y_pred_label, pos_label=0)
-    recall_real = recall_score(y_label, y_pred_label, pos_label=0)
-    f1_real = f1_score(y_label, y_pred_label, pos_label=0)
+    try:
+        precision_fake = precision_score(y_label, y_pred_label)
+        recall_fake = recall_score(y_label, y_pred_label)
+        f1_fake = f1_score(y_label, y_pred_label)
+    except UndefinedMetricWarning:
+        print("* Fake: ")
+        print("* y_pred_label: {}\n".format(len(y_pred_label)), y_pred_label)
+        print("* y_label: {}\n".format(len(y_label)), y_label)
+        exit(0)
+
+    try:
+        precision_real = precision_score(y_label, y_pred_label, pos_label=0)
+        recall_real = recall_score(y_label, y_pred_label, pos_label=0)
+        f1_real = f1_score(y_label, y_pred_label, pos_label=0)
+    except UndefinedMetricWarning:
+        print("* Real: ")
+        print("* y_pred_label: {}\n".format(len(y_pred_label)), y_pred_label)
+        print("* y_label: {}\n".format(len(y_label)), y_label)
+        exit(0)
 
     macro_precision = precision_score(y_label, y_pred_label, average='macro')
     macro_recall = recall_score(y_label, y_pred_label, average='macro')
@@ -251,7 +268,8 @@ def eval_image_stream(model ,dataloader, device, criterion, adj_brightness=1.0, 
             logps_cpu = logps.cpu().numpy()
             pred_label = (logps_cpu > 0.5)
             y_pred_label.extend(pred_label)
-
+            
+    assert len(y_label) == len(y_pred_label), "Bug"
     ######## Calculate metrics:
     loss /= len(dataloader)
     mac_accuracy /= len(dataloader)
@@ -314,6 +332,7 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
     for epoch in range(init_epoch, epochs):
         print("\n=========================================")
         print("Epoch: {}/{}".format(epoch+1, epochs))
+        print("Model: {} - {}".format(model_name, args_txt))
         print("lr = ", optimizer.param_groups[0]['lr'])
 
         # Train
@@ -437,6 +456,11 @@ def eval_dual_stream(model, dataloader, device, criterion, adj_brightness=1.0, a
             y_pred_label.extend(pred_label)
 
     ######## Calculate metrics:
+    if len(y_label) != len(y_pred_label):
+        print(y_label)
+        print(y_pred_label)
+        print(set(y_pred_label) - set(y_label))
+        print("Bug")
     loss /= len(dataloader)
     mac_accuracy /= len(dataloader)
     # built-in methods for calculating metrics
@@ -466,7 +490,7 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
 
     # Generate dataloader train and validation 
     dataloader_train, dataloader_val, num_samples = generate_dataloader_dual_stream(train_dir, val_dir, image_size, batch_size, num_workers)
-    dataloader_test = generate_test_dataloader_dual_stream(test_dir, image_size, batch_size, num_workers)
+    dataloader_test = generate_test_dataloader_dual_stream(test_dir, image_size, 2*batch_size, num_workers)
         
     # Define criterion
     criterion = define_criterion(criterion_name, num_samples)
@@ -566,6 +590,7 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
         running_loss = 0
         running_acc = 0
         scheduler.step()
+        model.train()
 
         # Early stopping:
         es_cur_score = find_current_earlystopping_score(es_metric, val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2])
