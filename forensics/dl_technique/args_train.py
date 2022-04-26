@@ -31,6 +31,7 @@ def parse_args():
     parser_xception = sub_parser.add_parser('xception', help='XceptionNet')
     parser_meso4 = sub_parser.add_parser('meso4', help='MesoNet')
     parser_dual_eff = sub_parser.add_parser('dual_efficient', help="Efficient-Frequency Net")
+    parser_srm_2_stream = sub_parser.add_parser('srm_2_stream', help="SRM 2 stream net from \"Generalizing Face Forgery Detection with High-frequency Features (CVPR 2021).\"")
     # Ablation study
     parser_dual_attn_eff = sub_parser.add_parser('dual_attn_efficient', help="Ablation Study")
     parser_dual_attn_eff.add_argument("--patch_size",type=int,default=7,help="patch_size")
@@ -44,6 +45,7 @@ def parse_args():
     parser.add_argument('--heads',type=int, default = 8, help='number of head in attention layer')
     parser.add_argument('--mlp_dim',type=int, default = 2048, help='dim of hidden layer in transformer layer')
     parser.add_argument('--dim_head',type=int, default = 64, help='in transformer layer ')
+    parser.add_argument('--pool',type=str, default = "cls", help='in transformer layer ')
     
     # ViT
     parser_vit = sub_parser.add_parser('vit', help='ViT transformer Net')
@@ -107,6 +109,20 @@ if __name__ == "__main__":
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="exception", args_txt=args_txt)
     
+    elif model == 'srm_2_stream':
+        from module.train_torch import train_image_stream
+        from model.cnn.srm_2_stream_net.srm_2_stream import Two_Stream_Net
+        model = Two_Stream_Net()
+        args_txt = "lr_{}_batch_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.es_metric, args.loss)
+        criterion = [args.loss]
+        if args.gamma:
+            args_txt += "gamma_{}".format(args.gamma)
+            criterion.append(args.gamma)
+            
+        train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir, image_size=args.image_size, lr=args.lr,\
+                           batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
+                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="srm_2_stream", args_txt=args_txt)
+        
     elif model == "meso4":
         from model.cnn.mesonet import mesonet
         from module.train_torch import train_image_stream
@@ -182,7 +198,7 @@ if __name__ == "__main__":
             emb_dropout=emb_dropout,
         )
         
-        args_txt = "lr_{}_patch_h_{}_d_{}_es_{}_loss_{}".format(args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss)
+        args_txt = "lr_{}_pool_{}_patch_h_{}_d_{}_es_{}_loss_{}".format(args.lr, args.pool, args.patch_size, args.heads, args.depth, args.es_metric, args.loss)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
@@ -210,10 +226,11 @@ if __name__ == "__main__":
             emb_dropout=emb_dropout,
             version=args.version,
             weight=args.weight,
-            freeze=args.freeze
+            freeze=args.freeze,
+            pool=args.pool
         )
         
-        args_txt = "v_{}_w_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
+        args_txt = "v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
@@ -241,10 +258,11 @@ if __name__ == "__main__":
             emb_dropout=emb_dropout,
             version=args.version,
             weight=args.weight,
-            freeze=args.freeze
+            freeze=args.freeze,
+            pool=args.pool
         )
         
-        args_txt = "v_{}_w_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
+        args_txt = "v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
@@ -252,4 +270,4 @@ if __name__ == "__main__":
         
         train_dual_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir,  image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters,\
-                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-efficient-vit", args_txt=args_txt)
+                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="dual-efficient-vit-v2", args_txt=args_txt)
