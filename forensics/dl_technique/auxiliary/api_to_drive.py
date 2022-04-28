@@ -2,9 +2,11 @@ from ast import Return
 import os, sys
 import os.path as osp
 from os.path import join
+from click import pass_context
 
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
+from scipy.fft import dst
 from tqdm import tqdm
 
 import json
@@ -68,7 +70,7 @@ class GoogleDriveAPI(object):
         file = self.get_file(id)
         return file['mimeType'] != 'application/vnd.google-apps.folder'
     
-    def list_files(self, folder_id: str):
+    def listdir(self, folder_id: str):
         """_summary_: return all files in a folder having id <folder_id>
         Returns:
             file_list(
@@ -86,21 +88,27 @@ class GoogleDriveAPI(object):
                 ]
             )
         """
-        file_list = None
-        if self.method == 'pydrive':
-            file_list = self.drive.ListFile({'q': "'{}' in parents and trashed=false".format(folder_id)}).GetList()
-        return file_list
+        assert self.is_directory(folder_id), "This item is not a folder."
+        return self.drive.ListFile({'q': "'{}' in parents and trashed=false".format(folder_id)}).GetList()
 
-    def create_file(self, file_name: str, content: str, dst_id: str, overwrite=True):
-        """_summary_ Create a file with content in destination directory
+    def create_file(self, file_name: str, content: str, dst_id: str, overwrite=False):
+        """_summary_ Create a file with content in destination directory. Return: id of created file
         """
         assert self.is_directory(dst_id), "Error! Destination should be a folder"
-        dst_files = self.find_file_in_current_folder(file_name, dst_id, verbose=True)
-        while len(dst_files):
-            name, ext = osp.splitext(osp.basename(file_name))
-            file_name = name + ' - copy' + ext
-            dst_files = self.find_file_in_current_folder(file_name, dst_id, verbose=True)
-            
+
+        exist = True if len(self.find_file_in_folder(file_name, dst_id)) else False
+        if overwrite:
+            file_list = self.listdir(folder_id=dst_id)
+            try:
+                for file in tqdm(file_list):
+                    if file['title'] == file_name:
+                        print("Found existing files in gdrive.")
+                        file.Trash()
+            except:
+                pass
+        if not overwrite and exist:
+            file_name = self.set_copied_file_name(file_name, dst_id)
+
         file = self.drive.CreateFile(metatdata={
             'parents': [{
                 'id': dst_id
@@ -109,9 +117,10 @@ class GoogleDriveAPI(object):
         })
         file.SetContentString(content)
         file.Upload()
+        return file['id']
         
     def create_folder(self, folder_name: str, dst_id: str):
-        """_summary_ Create a folder in destination directory
+        """_summary_ Create a folder in destination directory. Returns: id of created folder.
         """
         assert self.is_directory(dst_id), "Error! Destination should be a folder"
         folder = self.drive.CreateFile(metadata={
@@ -122,6 +131,7 @@ class GoogleDriveAPI(object):
             'mimeType': 'application/vnd.google-apps.folder'
         })
         folder.Upload()
+        return folder['id']
     
     def delete_file(self, id: str, permanent=True):
         """_summary_ Delete a file/folder
@@ -131,36 +141,38 @@ class GoogleDriveAPI(object):
             file.Trash()
         else:
             file.Delete()
+    
+    def delete_file_in_folder(self, file_name: str, folder_id: str, permanent=False, verbose=True):
+        """_summary_ Delete a file/folder with name <file_name> in folder has id <folder_id>
+        """
+        assert self.is_directory(folder_id), "The second parameter must be a folder"
+        files = self.listdir(folder_id)
+        for file in tqdm(files):
+            if file['title'] == file_name:
+                if verbose:
+                    print('File {} found! Id = {}'.format(file['title'], file['id']))
+                if not permanent:
+                    file.Trash()
+                else:
+                    file.Delete()
             
     def upload_file_to_drive(self, file_path: str, dst_id="", overwrite=True):
-        """Upload a file from this device to drive. If not have destination folder, default sets root directory.
+        """Upload a file from this device to drive. If not have destination folder, default sets root directory. Return: id of created file.
         """
-        # Delete existing file before overwrite:
         dst_id = self.root_id if dst_id == "" else dst_id
         assert self.is_directory(dst_id), "Destination should be a folder."
         assert osp.exists(file_path), "Source not exist."
         
+        # Delete existing file before overwrite:
         if overwrite:
-            file_list = self.list_files(folder_id=dst_id)
-            try:
-                for file in tqdm(file_list):
-                    if file['title'] == osp.basename(file_path):
-                        print("Found existing files in gdrive.")
-                        file.Trash()
-            except:
-                pass
+            self.delete_file_in_folder(file_name=osp.basename(file_path), folder_id=dst_id, verbose=True)
+
         # Upload file to drive:
         file_name = osp.basename(file_path)
-        exist = True if len(self.find_file_in_current_folder(file_name, dst_id)) else False
+        exist = True if len(self.find_file_in_folder(file_name, dst_id)) else False
         if not overwrite and exist:
-            name, ext = osp.splitext(file_name)
-            file_name = name + ' - copy' + ext
-            files = self.find_file_in_current_folder(file_name, dst_id, verbose=False)
-            while len(files):
-                name, ext = osp.splitext(file_name)
-                file_name = name + ' - copy' + ext
-                files = self.find_file_in_current_folder(file_name, dst_id, verbose=False)
-        
+            file_name = self.name_copied_file(file_name)
+
         f = self.drive.CreateFile({
             'title': file_name,
             'parents': [{
@@ -169,6 +181,7 @@ class GoogleDriveAPI(object):
         })
         f.SetContentFile(filename=file_path)
         f.Upload()
+        return f['id']
     
     def upload_folder_to_drive(self, folder_path: str, dest_id: str, overwrite=True, merge=False):
         """_summary_ upload a folder to gdrive
@@ -182,39 +195,61 @@ class GoogleDriveAPI(object):
                 Defaults to False.
         """
         assert self.is_directory(id=dest_id), "Error! Destination should be a folder."
-        assert osp.isdir(folder_path), "Error! Source should be a folder"
-        
-        # Create a folder in destination dir:
-        dst_subfolder = [d['title'] for d in self.list_files(dest_id) if self.is_directory(d['id'])]
-        exist = True if osp.basename(folder_path) in dst_subfolder else False
-        new_name = osp.basename(folder_path)
-        if exist and not overwrite:
-            new_name = osp.basename(folder_path) + ' - copy'
+        assert osp.isdir(folder_path), "Error! Source should be a folder."
             
-        def upload(src_folder: str, dst_id: str):
+        def upload(src_folder: str, dst_id: str, root=False):
             """_summary_ Upload all files in a src folder to destionation dir.
+                Args:
+                    "root=False" determines src_folder is the root folder of uploaded folder (folder_path).
+                    Otherwise, "root=True" determines src_folder is a sub-folder of uploaded folder
             """
             print("overwrite", overwrite)
             print("merge", merge)
+            # Upload folder first:
+            folders = self.find_file_in_folder(folder_name, dst_id)
+            assert len(folders) < 2, "Must be less than 2 folders with the same name in one destinaton directory."
+            exist = True if len(folders) else False
+            folder_name = osp.basename(src_folder)
+            folder_id = "" if not exist else folders[0]['id']
+            create_file = False
+            if not exist:
+                create_file = True
+                
+            if root:
+                if exist:
+                    if not overwrite:
+                        folder_name = self.set_copied_file_name(file_name=folder_name, dest_id=dst_id)
+                        create_file = True
+                    else:
+                        if not merge:
+                            self.delete_file(id=folder_id, permanent=False)
+                            create_file = True
+            else:
+                if exist:
+                    if overwrite and merge:
+                        folder_name = self.set_copied_file_name(file_name=folder_name, dest_id=dst_id)
+                        create_file = True
+            # Create file if has flag
+            if create_file:
+                folder_id = self.create_folder(folder_name, dst_id)
+                             
             src_files = os.listdir(src_folder)
-            dst_files = self.list_files(dst_id)
-            dst_file_name = [f['title'] for f in dst_files]
-            
             for src_file in src_files:
                 src_path = join(src_folder, src_file)
                 if osp.isfile(src_path):
-                    overwrite_ = True if 
-                    self.upload_file_to_drive(file_path=src_path, folder_id=dst_id, overwrite=overwrite_)
-        
-        pass
+                    self.upload_file_to_drive(file_path=src_path, folder_id=folder_id, overwrite=False)
+                else:
+                    upload(src_path, folder_id, root=False)
+            return folder_id
+        return upload(src_folder=folder_path, dst_id=dest_id, root=True)
 
-    def download_file_to_device(self, file_path: str, dest_dir: str, overwrite=True):
-        """_summary_ download a file with name <file_name> to destination directory.
+    def download_file_to_device(self, file_path: str, dest_dir: str, overwrite=False):
+        """_summary_ download a file with path <file_path> to destination directory.
         """
         assert osp.isdir(dest_dir), "Destination should be a folder."
         files = self.find_file(file_path, verbose=True)
         assert len(files) == 1, "{} files found!".format("No" if len(files) == 0 else len(files))
-        assert self.is_file(files[0][0]), "Source should be a file."
+        assert self.is_file(files[0]['id']), "Source should be a file."
         
         # Check destination contains file has the same name or not.
         file_name = osp.basename(file_path)
@@ -225,20 +260,55 @@ class GoogleDriveAPI(object):
             
         # Redefine the name if file existed and overwrite is set to False.
         if not overwrite and exist:
-            name, ext = osp.splitext(file_name)
-            file_name = name + ' - copy' + ext
+            file_name = self.name_copied_file(file_name)
             while osp.exists(join(dest_dir, file_name)):
-                name, ext = osp.splitext(osp.basename(file_path))
-                file_name = name + ' - copy' + ext  
+                file_name = self.name_copied_file(file_name)  
 
-        dest_path = join(dest_dir, dest_name)
-        file = self.get_file(id=files[0][0])
-        file.GetContentFile(filename=dest_name)
-        shutil.move(src=dest_name, dst=dest_path)
+        # Download file
+        file = self.get_file(id=files[0]['id'])
+        file.GetContentFile(filename=file_name)
+        shutil.move(src=file_name, dst=join(dest_dir, file_name))
     
-    def download_folder_to_device(self, folder_name: str, dest_dir: str, overwrite=True):
-        pass
-
+    def download_folder_to_device(self, folder_path: str, dest_dir: str, overwrite=False):
+        """_summary_ Download a folder from gdrive to destination directory. 
+            If overwrite=True and the folder has existed in destination dir, the folder will be overwritten completely. Otherwise, another folder with suffix ' - Copy' in name will be created.
+        """
+        assert osp.isdir(dest_dir), "Destination should be a folder!"
+        folders = self.find_file(folder_path, verbose=True)
+        assert len(folders) == 1, "Error!{} folders found!".format(len(folders) if len(folders) else "No")
+        assert self.is_directory(folders[0]['id']), "Source should be a folder!"
+        
+        def download(src_dir: str, dst_dir: str, root=False):
+            # Create folder with name <src_dir.name> in dst_dir:
+            dst_path = ""
+            if root:
+                # Check if destination dir contains downloaded folder
+                src_name = osp.basename(src_dir)
+                dst_path = join(dst_dir, src_name)
+                exist = osp.exists(dst_path)
+                if exist and overwrite:
+                    shutil.rmtree(dst_path)
+                    
+                # Redefine the name if folder existed and overwrite is set to False.
+                if not overwrite and exist:
+                    src_name = self.name_copied_file(src_name)
+                    while osp.exists(join(dst_dir, src_name)):
+                        src_name = self.name_copied_file(src_name) 
+                dst_path = join(dst_dir, src_name)
+            else:
+                dst_path = join(dst_dir, osp.basename(src_dir))
+            os.mkdir(dst_path)
+            # Copy files in src_dir to new created folder.
+            src_files = self.listdir(self.find_file(src_dir, verbose=True)[0]['id'])
+            for src_file in src_files:
+                if self.is_file(src_file['id']):
+                    src_file.GetContentFile(filename=src_file['title'])
+                    shutil.move(src=src_file['title'], dst=join(dst_path, src_file['title']))
+                else:
+                    download(src_dir=src_file['path'], dst_dir=dst_path, root=False)
+                    
+        download(src_dir=folder_path, dst_dir=dest_dir, root=True)
+            
     def traverse_folder(self, folder_id: str):
         """_summary_ Traverse a file/folder and returns a dictionary with KEY is file path and VALUE is a List contains those files'id.
         """
@@ -246,7 +316,7 @@ class GoogleDriveAPI(object):
         def traverse(cur_id: str, cur_folder_name: str, traverse_dict: Dict[str, List[str]]):
             traverse_dict[cur_id] = cur_folder_name    
             if self.is_directory(cur_id):
-                list_file = self.list_files(folder_id=cur_id)
+                list_file = self.listdir(folder_id=cur_id)
                 for file in list_file:
                     file_name = cur_folder_name + '/' + file['title']
                     traverse(file['id'], file_name, traverse_dict)
@@ -263,7 +333,10 @@ class GoogleDriveAPI(object):
         result = []
         for id, path in self.paths.items():
             if (file_path in path) and (osp.basename(file_path) == osp.basename(path)) and all(sub in path.split('/') for sub in file_path.split('/')):
-                result.append((id, path))
+                result.append({
+                    'id': id,
+                    'path': path
+                })
                 
         if verbose:
             if len(result) == 0:
@@ -273,8 +346,9 @@ class GoogleDriveAPI(object):
                 for r in result:
                     print("   {} with id={}".format(r[1], r[0]))
         print(result)
+        return result
         
-    def find_file_in_current_folder(self, file_name: str, folder_id: str, verbose=False):
+    def find_file_in_folder(self, file_name: str, folder_id: str, verbose=False):
         """_summary_ Find all files with name <file_name> in a folder
         """
         files = self.drive.ListFile({'q': "'{}' in parents and title='{}' and trashed=false".format(folder_id, file_name)}).GetList()
@@ -283,6 +357,7 @@ class GoogleDriveAPI(object):
                 print("File not found!")
             else:
                 print("{} {} found. ".format(len(files), "file" if len(files) == 1 else "files"))  
+        return files
         
     def display_hierachical_tree_structure(self, folder_id: str, indent=4):
         """_summary_ Display structure of a folder. 
@@ -292,15 +367,26 @@ class GoogleDriveAPI(object):
             file = self.get_file(id)
             print(tabs + file['title'])
             if self.is_directory(id):
-                list_file = self.list_files(folder_id=id)
+                list_file = self.listdir(folder_id=id)
                 for file in list_file:
                     display(file['id'], n_tab + 1)  
         display(id=folder_id, n_tab=0)
         
-    def name_copy_file(self, name: str, ext: str):
-        return name + ' - copy' + ext
+    def name_copied_file(self, file_name: str, extra_str=' - Copy'):
+        """_summary_ Rename for a copied file. Returns: new file name
+        """
+        head, tail = osp.split(file_name)
+        name, ext = osp.splitext(tail)
+        return join(head, name + extra_str + ext)
+    
+    def set_copied_file_name(self, file_name: str, dest_id: str):
+        """_summary_ Rename for a copied file with condition this name doesn't present in destionation dir. Returns: new file name
+        """
+        while len(self.find_file_in_folder(file_name, dest_id, verbose=False)):
+            file_name = self.name_copied_file(file_name)
+        return file_name
             
 if __name__ == '__main__':
-    # gdrive = GoogleDriveAPI(root_id="1P2Tm9ZQqR5CKTYXVPxcHHEC0VyVrJgFK", method='pydrive', display_tree=False)
+    gdrive = GoogleDriveAPI(root_id="1P2Tm9ZQqR5CKTYXVPxcHHEC0VyVrJgFK", method='pydrive', display_tree=False)
     # gdrive.upload_file_to_drive(folder_id="1P2Tm9ZQqR5CKTYXVPxcHHEC0VyVrJgFK", file_path="test/template.pptx", overwrite=True)
     # gdrive.find_file
