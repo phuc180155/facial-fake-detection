@@ -147,7 +147,7 @@ class GoogleDriveAPI(object):
         """
         assert self.is_directory(folder_id), "The second parameter must be a folder"
         files = self.listdir(folder_id)
-        for file in tqdm(files):
+        for file in files:
             if file['title'] == file_name:
                 if verbose:
                     print('File {} found! Id = {}'.format(file['title'], file['id']))
@@ -159,6 +159,7 @@ class GoogleDriveAPI(object):
     def upload_file_to_drive(self, file_path: str, dst_id="", overwrite=True):
         """Upload a file from this device to drive. If not have destination folder, default sets root directory. Return: id of created file.
         """
+        print("Uploading file {}...".format(file_path))
         dst_id = self.root_id if dst_id == "" else dst_id
         assert self.is_directory(dst_id), "Destination should be a folder."
         assert osp.exists(file_path), "Source not exist."
@@ -194,6 +195,7 @@ class GoogleDriveAPI(object):
                 If not overwrite, another with the name is concatenated with 'copy' will be created.
                 Defaults to False.
         """
+        print("Uploading folder {}...".format(folder_path))
         assert self.is_directory(id=dest_id), "Error! Destination should be a folder."
         assert osp.isdir(folder_path), "Error! Source should be a folder."
             
@@ -203,13 +205,12 @@ class GoogleDriveAPI(object):
                     "root=False" determines src_folder is the root folder of uploaded folder (folder_path).
                     Otherwise, "root=True" determines src_folder is a sub-folder of uploaded folder
             """
-            print("overwrite", overwrite)
-            print("merge", merge)
+            print("Upload ", src_folder, "to", dst_id)
             # Upload folder first:
+            folder_name = osp.basename(src_folder)
             folders = self.find_file_in_folder(folder_name, dst_id)
             assert len(folders) < 2, "Must be less than 2 folders with the same name in one destinaton directory."
             exist = True if len(folders) else False
-            folder_name = osp.basename(src_folder)
             folder_id = "" if not exist else folders[0]['id']
             create_file = False
             if not exist:
@@ -232,16 +233,17 @@ class GoogleDriveAPI(object):
             # Create file if has flag
             if create_file:
                 folder_id = self.create_folder(folder_name, dst_id)
-                             
+                print("Create folder: ", folder_name)              
             src_files = os.listdir(src_folder)
             for src_file in src_files:
                 src_path = join(src_folder, src_file)
                 if osp.isfile(src_path):
-                    self.upload_file_to_drive(file_path=src_path, folder_id=folder_id, overwrite=False)
+                    self.upload_file_to_drive(file_path=src_path, dst_id=folder_id, overwrite=False)
                 else:
                     upload(src_path, folder_id, root=False)
             return folder_id
-        return upload(src_folder=folder_path, dst_id=dest_id, root=True)
+        f_id = upload(src_folder=folder_path, dst_id=dest_id, root=True)
+        return f_id
 
     def download_file_to_device(self, file_path: str, dest_dir: str, overwrite=False):
         """_summary_ download a file with path <file_path> to destination directory.
@@ -369,8 +371,10 @@ class GoogleDriveAPI(object):
             if self.is_directory(id):
                 list_file = self.listdir(folder_id=id)
                 for file in list_file:
-                    display(file['id'], n_tab + 1)  
+                    display(file['id'], n_tab + 1)
+        print("\n**************** Hierachy structure: ****************")
         display(id=folder_id, n_tab=0)
+        print("*****************************************************")
         
     def name_copied_file(self, file_name: str, extra_str=' - Copy'):
         """_summary_ Rename for a copied file. Returns: new file name
@@ -387,6 +391,21 @@ class GoogleDriveAPI(object):
         return file_name
             
 if __name__ == '__main__':
-    gdrive = GoogleDriveAPI(root_id="1P2Tm9ZQqR5CKTYXVPxcHHEC0VyVrJgFK", method='pydrive', display_tree=False)
-    # gdrive.upload_file_to_drive(folder_id="1P2Tm9ZQqR5CKTYXVPxcHHEC0VyVrJgFK", file_path="test/template.pptx", overwrite=True)
-    # gdrive.find_file
+    gdrive = GoogleDriveAPI(root_id="1XYvccxaHguOUFJ3JLGaIvxisMo0JYAYY", method='pydrive', display_tree=True)
+    file_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/test.txt"
+    dst_id = "1UKZa6PFKa8uqn0HsfXWE_8f7zmq4nAQd"
+    
+    ################################ TEST Upload Folder ################################
+    folder_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/api_to_drive" #
+    dst_id = "1XYvccxaHguOUFJ3JLGaIvxisMo0JYAYY"    #my repo/api_to_drive
+    merge_id = gdrive.upload_folder_to_drive(folder_path=folder_path, dest_id=dst_id, overwrite=False, merge=True)
+    # gdrive.display_hierachical_tree_structure(folder_id=merge_id)
+    # folder_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/api_to_drive"
+    # dst_id = "1P2Tm9ZQqR5CKTYXVPxcHHEC0VyVrJgFK"    #api_to_drive
+    # not_merge_id = gdrive.upload_folder_to_drive(folder_path=folder_path, dest_id=dst_id, overwrite=False, merge=False)
+    # print("=== RESULT ===")
+    # print(merge_id)
+    # print(not_merge_id)
+    #####################################################################################
+    # gdrive = GoogleDriveAPI(root_id="1a4PZ2S0s268GWNF8Jdd8RjGJbaUuR5m7", method='pydrive', display_tree=True)
+    # gdrive = GoogleDriveAPI(root_id="1niOW46c78JcH2VJ7-ubUtPXyuhtQMZMn", method='pydrive', display_tree=True)
