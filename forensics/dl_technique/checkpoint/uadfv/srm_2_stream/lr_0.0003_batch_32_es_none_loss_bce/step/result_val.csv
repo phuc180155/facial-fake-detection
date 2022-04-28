@@ -1,1 +1,0 @@
-step, Train loss, Train accuracy, Val loss, Val accuracy, Val real pre, Val real rec, Val real F1-Score, Val fake pre, Val fake rec, Val fake F1-Score, Val micro pre, Val micro rec, Val micro F1-Score, Val macro pre, Val macro rec, Val macro F1-Score

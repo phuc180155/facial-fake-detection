@@ -1,2 +1,0 @@
-epoch, Train loss, Train accuracy, Test loss, Test accuracy, Test real pre, Test real rec, Test real F1-Score, Test fake pre, Test fake rec, Test fake F1-Score, Test micro pre, Test micro rec, Val micro F1-Score, Test macro pre, Test macro rec, Test macro F1-Score
-1,1.258487,0.893255,3.859234,0.754761,0.675410,1.000000,0.806262,1.000000,0.499209,0.665963,0.754761,0.754761,0.754761,0.837705,0.749605,0.736113
