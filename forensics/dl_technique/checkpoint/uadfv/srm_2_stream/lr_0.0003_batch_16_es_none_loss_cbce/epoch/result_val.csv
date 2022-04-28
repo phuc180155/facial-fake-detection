@@ -1,0 +1,2 @@
+epoch, Train loss, Train accuracy, Val loss, Val accuracy, Val real pre, Val real rec, Val real F1-Score, Val fake pre, Val fake rec, Val fake F1-Score, Val micro pre, Val micro rec, Val micro F1-Score, Val macro pre, Val macro rec, Val macro F1-Score
+1,1.258487,0.893255,0.407590,0.973250,0.949217,1.000000,0.973947,1.000000,0.946500,0.972515,0.973250,0.973250,0.973250,0.974608,0.973250,0.973231
