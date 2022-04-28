@@ -2,6 +2,7 @@ import os, sys
 import os.path as osp
 from os.path import join
 from tracemalloc import Statistic
+from numpy import void
 
 from sklearn.metrics import d2_tweedie_score
 root_dir = osp.dirname(__file__)
@@ -10,13 +11,21 @@ from glob import glob
 from tqdm import tqdm
 import random
 import shutil
-from typing import List, Dict
+from typing import Any, List, Dict
 import argparse
 import json
 
 random.seed(0)
 
 def log_dataset_statistic(dataset_path: str, dataset_name: str, statistic_dir: str, device_name: str):
+    """Function to save all the image paths of a dataset to a statistic directory
+
+    Args:
+        dataset_path (str): path to folder contains dataset, like: ".../image/"
+        dataset_name (str): name of dataset
+        statistic_dir (str): path to statistic directory
+        device_name (str): the name of this device
+    """
     dsets = [join(dataset_path, 'train'), join(dataset_path, 'test'), join(dataset_path, 'val')]
     for dset in dsets:
         print(dset)
@@ -31,7 +40,15 @@ def log_dataset_statistic(dataset_path: str, dataset_name: str, statistic_dir: s
                 f.write(saved_path)
     
 
-def statisticize_dataset(dataset_path: str) -> Dict[str, Dict[str, int]]:
+def statisticize_dataset(dataset_path: str):
+    """ Function to display statistic of a dataset
+
+    Args:
+        dataset_path (str): path to folder contains dataset, like: .../image/
+    Return:
+        Dict[str, Dict[str, int]]
+    """
+
     train_set = join(dataset_path, 'train')
     test_set = join(dataset_path, 'test')
     val_set = join(dataset_path, 'val')
@@ -53,7 +70,9 @@ def statisticize_dataset(dataset_path: str) -> Dict[str, Dict[str, int]]:
     print(json.dumps(statistic, indent=4))
     return statistic
 
-def get_image_from_txt_file(txt_file: str, head_path: str):
+def get_image_from_txt_file(txt_file: str, head_path: str)->void:
+    """
+    """
     dset = []
     with open(txt_file, 'r') as f:
         lines = f.readlines()
