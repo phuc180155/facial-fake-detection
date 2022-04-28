@@ -398,7 +398,7 @@ class GoogleDriveAPI(object):
             
 if __name__ == '__main__':
     root_id = "1XYvccxaHguOUFJ3JLGaIvxisMo0JYAYY"
-    gdrive = GoogleDriveAPI(root_id=root_id, method='pydrive', device='8tcp', display_tree=False)
+    gdrive = GoogleDriveAPI(root_id=root_id, method='pydrive', device='61', display_tree=False)
     file_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/test.txt"
     dst_id = "1UKZa6PFKa8uqn0HsfXWE_8f7zmq4nAQd"
     

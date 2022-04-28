@@ -408,7 +408,7 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
             print('Early stopping. Best {}: {:.6f}'.format(es_metric, early_stopping.best_score))
             break
     time.sleep(5)
-    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], args_txt)))
+    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f}_{:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], epoch_model_saver.best_scores[2], step_model_saver.best_scores[2], args_txt)))
     return
 
 #############################################
@@ -603,5 +603,5 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
             break
     # Sleep 5 seconds for rename ckcpoint dir:
     time.sleep(5)
-    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], args_txt)))
+    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f}_{:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], epoch_model_saver.best_scores[2], step_model_saver.best_scores[2], args_txt)))
     return
