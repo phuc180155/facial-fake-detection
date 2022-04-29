@@ -169,7 +169,7 @@ if __name__ == "__main__":
             freeze=args.freeze
         )
         
-        args_txt = "v_{}_w_{}_lr_{}_patch_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
+        args_txt = "batch_{}_v_{}_w_{}_lr_{}_patch_{}_es_{}_loss_{}_freeze_{}".format(args.batch_size, args.version, args.weight, args.image_size, args.lr, args.patch_size, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
@@ -198,7 +198,7 @@ if __name__ == "__main__":
             emb_dropout=emb_dropout,
         )
         
-        args_txt = "lr_{}_pool_{}_patch_h_{}_d_{}_es_{}_loss_{}".format(args.lr, args.pool, args.patch_size, args.heads, args.depth, args.es_metric, args.loss)
+        args_txt = "lr_{}_batch_{}_pool_{}_patch_h_{}_d_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.pool, args.patch_size, args.heads, args.depth, args.es_metric, args.loss)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
@@ -230,7 +230,7 @@ if __name__ == "__main__":
             pool=args.pool
         )
         
-        args_txt = "v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
+        args_txt = "batch_{}_v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.batch_size, args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
@@ -262,7 +262,7 @@ if __name__ == "__main__":
             pool=args.pool
         )
         
-        args_txt = "v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
+        args_txt = "batch_{}_v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.batch_size, args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
