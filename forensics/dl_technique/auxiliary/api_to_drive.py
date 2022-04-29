@@ -12,6 +12,7 @@ from tqdm import tqdm
 import json
 
 from typing import Dict, List
+from glob import glob
 import shutil
 
 class GoogleDriveAPI(object):
@@ -49,7 +50,7 @@ class GoogleDriveAPI(object):
         except:
             self.root = None
         # Traverse all files in root:
-        if display_tree:
+        if display_tree and self.root_id != "":
             self.display_hierachical_tree_structure(self.root_id)
         self.paths = self.traverse_folder(self.root_id)
     
@@ -185,7 +186,7 @@ class GoogleDriveAPI(object):
         f.Upload()
         return f['id']
     
-    def upload_folder_to_drive(self, folder_path: str, dest_id: str, overwrite=True, merge=False):
+    def upload_folder_to_drive(self, folder_path: str, dest_id: str, exclude_folder=None, overwrite=True, merge=False):
         """_summary_ upload a folder to gdrive
         Args:
             folder_path (str): path to folder
@@ -208,6 +209,10 @@ class GoogleDriveAPI(object):
             """
             # print("Upload ", src_folder, "to", dst_id)
             # Upload folder first:
+            if exclude_folder is not None and isinstance(exclude_folder, list):
+                if src_folder in exclude_folder:
+                    return ""
+
             folder_name = osp.basename(src_folder)
             folders = self.find_file_in_folder(folder_name, dst_id)
             assert len(folders) < 2, "Must be less than 2 folders with the same name in one destinaton directory."
@@ -249,6 +254,7 @@ class GoogleDriveAPI(object):
     def download_file_to_device(self, file_path: str, dest_dir: str, overwrite=False):
         """_summary_ download a file with path <file_path> to destination directory.
         """
+        print("Downloading...")
         assert osp.isdir(dest_dir), "Destination should be a folder."
         files = self.find_file(file_path, verbose=True)
         assert len(files) == 1, "{} files found!".format("No" if len(files) == 0 else len(files))
@@ -308,7 +314,7 @@ class GoogleDriveAPI(object):
                     src_file.GetContentFile(filename=src_file['title'])
                     shutil.move(src=src_file['title'], dst=join(dst_path, src_file['title']))
                 else:
-                    download(src_dir=src_file['path'], dst_dir=dst_path, root=False)
+                    download(src_dir=join(src_dir, src_file['title']), dst_dir=dst_path, root=False)
                     
         download(src_dir=folder_path, dst_dir=dest_dir, root=True)
             
@@ -325,8 +331,11 @@ class GoogleDriveAPI(object):
                     traverse(file['id'], file_name, traverse_dict)
                     
         result = {}
-        folder = self.get_file(folder_id)
-        traverse(folder['id'], folder['title'], result)
+        try:
+            folder = self.get_file(folder_id)
+            traverse(folder['id'], folder['title'], result)
+        except:
+            return result
         return result
            
     def find_file(self, file_path: str, verbose=False):
@@ -347,8 +356,8 @@ class GoogleDriveAPI(object):
             else:
                 print("{} {} found: ".format(len(result), "file" if len(result) == 1 else "files"))
                 for r in result:
-                    print("   {} with id={}".format(r[1], r[0]))
-        print(result)
+                    print("   {} with id={}".format(r['path'], r['id']))
+        # print(result)
         return result
         
     def find_file_in_folder(self, file_name: str, folder_id: str, verbose=False):
@@ -396,18 +405,85 @@ class GoogleDriveAPI(object):
             file_name = self.name_copied_file(file_name)
         return file_name
             
+    def check_synchronization(self, gdrive_id: str, device_path: str):
+        """_summary_ Check synchronization between two files/folders in google drive and this device. Returns bool
+        """
+        hierachy_drive = self.traverse_folder(folder_id=gdrive_id)
+        hierachy_drive_ = sorted([v for v in hierachy_drive.values()])
+              
+        def traverse_in_device(path: str, max_depth=10):
+            res = []
+            template = [path] + [join(path, '/'.join(['*']*i)) for i in range(1, max_depth)]
+            # print(template)
+            for temp in template:
+                print("{}: {}".format(temp, len(glob(temp))))
+                res.extend(glob(temp))
+                
+                
+            head = '/'.join(path.split('/')[:-1]) + '/'
+                
+            return [r.replace(head, '') for r in res]
+        
+        def check_identical(list_1: List[str], list_2: List[str]):
+            print("list 1 - drive: {}, list 2 - device: {}".format(len(list_1), len(list_2)))
+            for l in list_1:
+                if l not in list_2:
+                    print("List 1 not in list 2: ", l)
+                    return False   
+            for l in list_2:
+                if l not in list_1:
+                    print("List 2 not in list 1: ", l)  
+                    return False
+            return True
+    
+        hierachy_device_ = sorted(traverse_in_device(path=device_path))
+        return check_identical(hierachy_drive_, hierachy_device_)
+        
+        
+        
 if __name__ == '__main__':
-    root_id = "1XYvccxaHguOUFJ3JLGaIvxisMo0JYAYY"
+    root_id = ""
+    print("/".join(["*"]*0))
+    print(join("1", ""))
+    # root_id = "17Y6jdy74CQEpH2W-fDBHbcv5Duz-cAgT"
     gdrive = GoogleDriveAPI(root_id=root_id, method='pydrive', device='61', display_tree=False)
+    
+    ################################ TEST Upload Folder ################################
     file_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/test.txt"
     dst_id = "1UKZa6PFKa8uqn0HsfXWE_8f7zmq4nAQd"
     
-    ################################ TEST Upload Folder ################################
-    folder_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique" #
-    dst_id = "1XYvccxaHguOUFJ3JLGaIvxisMo0JYAYY"    #my repo
-    merge_id = gdrive.upload_folder_to_drive(folder_path=folder_path, dest_id=dst_id, overwrite=True, merge=True)
+    # folder_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/checkpoint" #
+    # dst_id = "1XYvccxaHguOUFJ3JLGaIvxisMo0JYAYY"    #my repo
+    # merge_id = gdrive.upload_folder_to_drive(folder_path=folder_path, dest_id=dst_id, overwrite=True, merge=True)
+    
+    # folder_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/checkpoint" #
+    # dst_id = "1QzAdW_4VFMeiLGoFowgb1lNQ4iFSazWA"    #my repo
+    # exclude = None
+    # merge_id = gdrive.upload_folder_to_drive(folder_path=folder_path, dest_id=dst_id, exclude_folder=exclude, overwrite=False, merge=True)
 
-    gdrive.display_hierachical_tree_structure(root_id)
+    # gdrive.display_hierachical_tree_structure(root_id)
     #####################################################################################
-    # gdrive = GoogleDriveAPI(root_id="1a4PZ2S0s268GWNF8Jdd8RjGJbaUuR5m7", method='pydrive', display_tree=True)
-    # gdrive = GoogleDriveAPI(root_id="1niOW46c78JcH2VJ7-ubUtPXyuhtQMZMn", method='pydrive', display_tree=True)
+
+    ################################ TEST Download Folder ################################
+    # file_path = "dual_efficient_vit/(0.81-12)_v_cross_attention-freq-add_w_0.8_lr_0.0003_patch_2_h_3_d_4_es_none_loss_bce_freeze_0/epoch/best_test_acc_0.806301.pt"
+    # dest_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/api_to_drive"
+    # gdrive.download_file_to_device(file_path=file_path, dest_dir=dest_path, overwrite=False)
+    
+    # folder_path = "dual_efficient_vit/(0.81-12)_v_cross_attention-freq-add_w_0.8_lr_0.0003_patch_2_h_3_d_4_es_none_loss_bce_freeze_0" #
+    # dest_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/api_to_drive"
+    # gdrive.download_folder_to_device(folder_path=folder_path, dest_dir=dest_path, overwrite=False)
+    
+    # file_path = "my repo/server_61/checkpoint/df_in_the_wild/dual_efficient_vit/(0.81-12)_v_cross_attention-freq-add_w_0.8_lr_0.0003_patch_2_h_3_d_4_es_none_loss_bce_freeze_0/step/best_test_avg_f1_0.801762.pt"
+    # dest_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/test/api_to_drive"
+    # gdrive.download_file_to_device(file_path=file_path, dest_dir=dest_path, overwrite=False)
+
+    # gdrive.display_hierachical_tree_structure(root_id)
+    #####################################################################################
+    
+    ################################ Check synchronization ################################
+    
+    gdrive_id = "1ijcDB7j_2_-U5Px8X9fInQVKW_pdvAJ-"
+    device_path = "/mnt/disk1/phucnp/Graduation_Thesis/review/forensics/dl_technique/checkpoint/df_in_the_wild/dual_efficient_vit/(0.81-12)_v_cross_attention-freq-add_w_0.8_lr_0.0003_patch_2_h_3_d_4_es_none_loss_bce_freeze_0"
+    sync = gdrive.check_synchronization(gdrive_id=gdrive_id, device_path=device_path)
+    print("Synchronize: ", "{}".format("Yes " if sync else "No"))
+    #####################################################################################
