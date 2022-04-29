@@ -2,4 +2,5 @@
 *.pt
 forensics/dl_technique/bash
 forensics/dl_technique/checkpoint
+forensics/dl_technique/checkpoint_tmp
 forensics/dl_technique/pretrained
