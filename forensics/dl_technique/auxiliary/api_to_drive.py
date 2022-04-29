@@ -426,15 +426,19 @@ class GoogleDriveAPI(object):
         
         def check_identical(list_1: List[str], list_2: List[str]):
             print("list 1 - drive: {}, list 2 - device: {}".format(len(list_1), len(list_2)))
+            print("* List 1 not in list 2: ")
+            ret = True
             for l in list_1:
                 if l not in list_2:
-                    print("List 1 not in list 2: ", l)
-                    return False   
+                    print(l)
+                    ret = False
+
+            print("List 2 not in list 1: ")  
             for l in list_2:
                 if l not in list_1:
-                    print("List 2 not in list 1: ", l)  
-                    return False
-            return True
+                    print(l)
+                    ret = False
+            return ret
     
         hierachy_device_ = sorted(traverse_in_device(path=device_path))
         return check_identical(hierachy_drive_, hierachy_device_)
