@@ -410,32 +410,39 @@ class GoogleDriveAPI(object):
         """
         print("Check synchronization...")
               
-        def traverse_in_device(path: str, max_depth=10):
-            res = []
-            template = [path] + [join(path, '/'.join(['*']*i)) for i in range(1, max_depth)]
-            # print(template)
-            for temp in template:
-                print("{}: {}".format(temp, len(glob(temp))))
-                res.extend(glob(temp))
-                
-            res = remove_exclude_path(path, exclude_device)
-            head = '/'.join(path.split('/')[:-1]) + '/'
-                
-            return [r.replace(head, '') for r in res]
-
+        def traverse_in_device(path: str):
+            res = [path]
+            for fname in os.listdir(path):
+                f_path = join(path, fname)
+                if osp.isfile(f_path):
+                    res.append(f_path)
+                else:
+                    res.extend(traverse_in_device(f_path))
+            return res
+            
         def remove_exclude_path(overall: List[str], exclude: List[str]):
+            if exclude is None:
+                return overall
+            # print("overall: ", overall)
+            # print("exclude: ", exclude)
             res = []
-            for ex in exclude:
-                for path in overall:
-                    if ex not in path:
-                        res.append(path)
+            for path in overall:
+                append = True
+                for ex in exclude:
+                    if ex in path:
+                        append = False
+                        break
+                if append:
+                    res.append(path)
             return res
         
         def check_identical(list_1: List[str], list_2: List[str], save=False):
             print("list 1 - drive: {}, list 2 - device: {}".format(len(list_1), len(list_2)))
-            print("* List 1 not in list 2: ")
+            print("* In drive but not in device: ")
             ret = True
             f = open('result/synchronization.txt', 'a') if save else None
+            f_drive = open('result/in_drive.txt', 'a') if save else None
+            f_device = open('result/in_device.txt', 'a') if save else None
             if save:
                 f.write("################ In drive but not in device: \n")
             for l in list_1:
@@ -444,24 +451,40 @@ class GoogleDriveAPI(object):
                     ret = False
                     if save:
                         f.write(l + '\n')
+                if save:
+                    f_drive.write(l + '\n')
 
             if save:
                 f.write("\n\n################ In device but not in gdrive: \n")
-            print("List 2 not in list 1: ")  
+
+            print("In device but not in gdrive: ")  
             for l in list_2:
                 if l not in list_1:
                     print(l)
                     ret = False
+                    if save:
+                        f.write(l + '\n')
+                if save:
+                    f_device.write(l + '\n')
+            if save:
+                f.close()
+                f_drive.close()
+                f_device.close()
             return ret
     
+        # Drive
         hierachy_drive = self.traverse_folder(folder_id=gdrive_id)
         hierachy_drive_ = [v for v in hierachy_drive.values()]
-        final_device_ = sorted(traverse_in_device(path=device_path))
-        final_drive_ = sorted(remove_exclude_path(overall=hierachy_drive_, exclude=exclude_gdrive))
-        return check_identical(final_drive_, final_device_)
+        hierachy_drive_ = remove_exclude_path(overall=hierachy_drive_, exclude=exclude_gdrive)
+        # Device
+        hierachy_device = remove_exclude_path(overall=traverse_in_device(path=device_path), exclude=exclude_device)
+        head = '/'.join(device_path.split('/')[:-1]) + '/'
+        hierachy_device_ = [p.replace(head, '') for p in hierachy_device]    
 
-        
-        
+        final_drive_ = sorted(hierachy_device_)
+        final_device_ = sorted(hierachy_drive_)
+        return check_identical(final_drive_, final_device_, save=True)
+
         
 if __name__ == '__main__':
     root_id = ""
