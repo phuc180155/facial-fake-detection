@@ -405,11 +405,10 @@ class GoogleDriveAPI(object):
             file_name = self.name_copied_file(file_name)
         return file_name
             
-    def check_synchronization(self, gdrive_id: str, device_path: str):
+    def check_synchronization(self, gdrive_id: str, device_path: str, exclude_gdrive: List[str], exclude_device: List[str]):
         """_summary_ Check synchronization between two files/folders in google drive and this device. Returns bool
         """
-        hierachy_drive = self.traverse_folder(folder_id=gdrive_id)
-        hierachy_drive_ = sorted([v for v in hierachy_drive.values()])
+        print("Check synchronization...")
               
         def traverse_in_device(path: str, max_depth=10):
             res = []
@@ -419,20 +418,35 @@ class GoogleDriveAPI(object):
                 print("{}: {}".format(temp, len(glob(temp))))
                 res.extend(glob(temp))
                 
-                
+            res = remove_exclude_path(path, exclude_device)
             head = '/'.join(path.split('/')[:-1]) + '/'
                 
             return [r.replace(head, '') for r in res]
+
+        def remove_exclude_path(overall: List[str], exclude: List[str]):
+            res = []
+            for ex in exclude:
+                for path in overall:
+                    if ex not in path:
+                        res.append(path)
+            return res
         
-        def check_identical(list_1: List[str], list_2: List[str]):
+        def check_identical(list_1: List[str], list_2: List[str], save=False):
             print("list 1 - drive: {}, list 2 - device: {}".format(len(list_1), len(list_2)))
             print("* List 1 not in list 2: ")
             ret = True
+            f = open('result/synchronization.txt', 'a') if save else None
+            if save:
+                f.write("################ In drive but not in device: \n")
             for l in list_1:
                 if l not in list_2:
                     print(l)
                     ret = False
+                    if save:
+                        f.write(l + '\n')
 
+            if save:
+                f.write("\n\n################ In device but not in gdrive: \n")
             print("List 2 not in list 1: ")  
             for l in list_2:
                 if l not in list_1:
@@ -440,8 +454,12 @@ class GoogleDriveAPI(object):
                     ret = False
             return ret
     
-        hierachy_device_ = sorted(traverse_in_device(path=device_path))
-        return check_identical(hierachy_drive_, hierachy_device_)
+        hierachy_drive = self.traverse_folder(folder_id=gdrive_id)
+        hierachy_drive_ = [v for v in hierachy_drive.values()]
+        final_device_ = sorted(traverse_in_device(path=device_path))
+        final_drive_ = sorted(remove_exclude_path(overall=hierachy_drive_, exclude=exclude_gdrive))
+        return check_identical(final_drive_, final_device_)
+
         
         
         
