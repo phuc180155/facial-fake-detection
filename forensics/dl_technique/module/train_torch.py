@@ -323,13 +323,13 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
         
     # Define Early stopping and Model saver
     early_stopping = EarlyStopping(patience=es_patience, verbose=True, tunning_metric=es_metric)
-    epoch_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_real_f1", "test_fake_f1", "test_avg_f1"])
-    step_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_real_f1", "test_fake_f1", "test_avg_f1"])
+    epoch_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_realf1", "test_fakef1", "test_avgf1"])
+    step_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_realf1", "test_fakef1", "test_avgf1"])
     
     # Define and load model
     model = model.to(device)
     if resume != "":
-        model.load_state_dict(torch.load(osp.join(ckc_pointdir, resume)))
+        model.load_state_dict(torch.load(osp.join(checkpoint, resume)))
     model.train()
 
     running_loss = 0
@@ -524,13 +524,13 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
         
     # Define Early stopping and Model saver
     early_stopping = EarlyStopping(patience=es_patience, verbose=True, tunning_metric=es_metric)
-    epoch_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_real_f1", "test_fake_f1", "test_avg_f1"])
-    step_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_real_f1", "test_fake_f1", "test_avg_f1"])
+    epoch_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_realf1", "test_fakef1", "test_avgf1"])
+    step_model_saver = ModelSaver(save_metrics=["val_loss", "val_acc", "test_loss", 'test_acc', "test_realf1", "test_fakef1", "test_avgf1"])
     
     # Define and load model
     model = model.to(device)
     if resume != "":
-        model.load_state_dict(torch.load(osp.join(ckc_pointdir, resume)))
+        model.load_state_dict(torch.load(osp.join(checkpoint, resume)))
     model.train()
 
     running_loss = 0

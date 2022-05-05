@@ -29,7 +29,7 @@ class ModelSaver:
         """
         Args:
             cur_scores (List[float]): must be respective to save_metrics.
-                Example: ["val_loss", "val_acc", "test_loss", 'test_acc', "test_real_f1", "test_fake_1", "test_avg_f1"]
+                Example: ["val_loss", "val_acc", "test_loss", 'test_acc', "test_realf1", "test_fakef1", "test_avgf1"]
         """
         assert len(cur_scores) == len(self.save_metrics), "Number of scores must be equal with number of save metrics!!!"
         for idx in range(len(cur_scores)):
@@ -59,8 +59,8 @@ class ModelSaver:
             if "model_last" in ckcpoint:
                 cnt += 1
                 os.remove(join(checkpoint_dir, ckcpoint))
-                torch.save(model.state_dict(), join(checkpoint_dir, "model_last_{}.pt".format(iteration)))
+                torch.save(model.state_dict(), join(checkpoint_dir, "_model_last_{}_.pt".format(iteration)))
         if cnt == 0:
-            torch.save(model.state_dict(), join(checkpoint_dir, "model_last_{}.pt".format(iteration)))            
+            torch.save(model.state_dict(), join(checkpoint_dir, "_model_last_{}_.pt".format(iteration)))            
         if cnt == 2:
             print("Seem to be wrong. 2 checkpoint in one folder.")

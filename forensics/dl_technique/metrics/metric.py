@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from typing import List
+from utils.util import save_list_to_file
 
 def accuracy_score(y_label: np.ndarray, y_pred_label: np.ndarray):
     assert len(y_pred_label) == len(y_label), "Prediction and groundtruth not have the same length."
@@ -57,10 +58,17 @@ def f1_score(y_label: np.ndarray, y_pred_label: np.ndarray, average='binary', po
         score = (f1_0 + f1_1)/2
     return score
 
-def calculate_cls_metric(y_label: np.ndarray, y_pred_label: np.ndarray):
-    return 
+def calculate_cls_metric(y_label: np.ndarray, y_pred_label: np.ndarray, average='binary', pos_label=1):
+    precision = precision_score(y_label, y_pred_label, average=average, pos_label=pos_label)
+    recall = recall_score(y_label, y_pred_label, average=average, pos_label=pos_label)
+    f1 = f1_score(y_label, y_pred_label, average=average, pos_label=pos_label)
+    return precision, recall, f1
 
-def calculate_cls_metrics(y_label: np.ndarray, y_pred_label: np.ndarray):
+def calculate_cls_metrics(y_label: np.ndarray, y_pred_label: np.ndarray, save=False):
+    if save:
+        save_list_to_file(y_label, file_name='y_label.txt')
+        save_list_to_file(y_pred_label, file_name='y_pred_label.txt')
+        
     accuracy = accuracy_score(y_label, y_pred_label)
     mic_pre, mic_rec, mic_f1 = calculate_cls_metric(y_label, y_pred_label, average='micro')
     mac_pre, mac_rec, mac_f1 = calculate_cls_metric(y_label, y_pred_label, average='macro')
@@ -72,5 +80,4 @@ def calculate_cls_metrics(y_label: np.ndarray, y_pred_label: np.ndarray):
                      (mac_pre, mac_rec, mac_f1)
                      
 if __name__ == '__main__':
-    print(1)
-    # f1_score(np.array([]), np.array([0.]))
+    f1_score(np.array([1.0]), np.array([0.]))
