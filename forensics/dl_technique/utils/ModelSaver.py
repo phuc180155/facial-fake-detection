@@ -25,7 +25,7 @@ class ModelSaver:
             return bool(cur_score > best_score)
         
         
-    def __call__(self, cur_scores: List[float], checkpoint_dir: str, model: torch.nn.Module):
+    def __call__(self, iter: int, cur_scores: List[float], checkpoint_dir: str, model: torch.nn.Module):
         """
         Args:
             cur_scores (List[float]): must be respective to save_metrics.
@@ -38,18 +38,18 @@ class ModelSaver:
             metric = self.save_metrics[idx]
             if self.better(cur_score, best_score, metric):
                 # print("Better...")
-                self.save_checkpoint(checkpoint_dir, model, metric, cur_score)
+                self.save_checkpoint(iter, checkpoint_dir, model, metric, cur_score)
                 self.best_scores[idx] = cur_score
             
-    def save_checkpoint(self, checkpoint_dir: str, model: torch.nn.Module, metric: str, score: float):
+    def save_checkpoint(self, iter: int, checkpoint_dir: str, model: torch.nn.Module, metric: str, score: float):
         cnt = 0
         for ckcpoint in os.listdir(checkpoint_dir):
             if metric in ckcpoint:
                 cnt += 1
                 os.remove(join(checkpoint_dir, ckcpoint))
-                torch.save(model.state_dict(), join(checkpoint_dir, "best_{}_{:.6f}.pt".format(metric, score)))
+                torch.save(model.state_dict(), join(checkpoint_dir, "best_{}_{}_{:.6f}.pt".format(metric, iter, score)))
         if cnt == 0:
-            torch.save(model.state_dict(), join(checkpoint_dir, "best_{}_{:.6f}.pt".format(metric, score)))            
+            torch.save(model.state_dict(), join(checkpoint_dir, "best_{}_{}_{:.6f}.pt".format(metric, iter, score)))            
         if cnt == 2:
             print("Seem to be wrong. 2 checkpoint in one folder.")
             

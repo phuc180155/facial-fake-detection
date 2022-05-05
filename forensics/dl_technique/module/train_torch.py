@@ -130,7 +130,7 @@ def define_criterion(criterion_name: List[str], num_samples: int):
             print("Use focal loss: ", weights, "gamma: ", float(criterion_name[1]))
     return criterion
 
-def define_log_writer(checkpoint: str, args_txt:str, model: Tuple[torch.nn.Module, str, int]):
+def define_log_writer(checkpoint: str, resume: str, args_txt:str, model: Tuple[torch.nn.Module, str, int]):
     """Defines some logging writer and saves model to text file
 
     Args:
@@ -144,7 +144,7 @@ def define_log_writer(checkpoint: str, args_txt:str, model: Tuple[torch.nn.Modul
     # Create checkpoint dir and sub-checkpoint dir for each hyperparameter:
     if not osp.exists(checkpoint):
         os.makedirs(checkpoint)
-    ckc_pointdir = osp.join(checkpoint, args_txt)
+    ckc_pointdir = osp.join(checkpoint, args_txt if resume == '' else 'resume')
     if not osp.exists(ckc_pointdir):
         os.makedirs(ckc_pointdir)
     # Save log with tensorboard
@@ -195,12 +195,14 @@ def define_log_writer(checkpoint: str, args_txt:str, model: Tuple[torch.nn.Modul
 
 def define_device(seed: int):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    os.environ['PYTHONHASHSEED'] = str(seed)
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
     if device == "cuda":
         torch.cuda.manual_seed_all(seed)
         cudnn.benchmark = True
+        cudnn.deterministic = True
     return device
 
 def calculate_metric(y_label: List[float], y_pred_label: List[float]):
@@ -279,29 +281,36 @@ def eval_image_stream(model ,dataloader, device, criterion, adj_brightness=1.0, 
     return loss, mac_accuracy, mic_accuracy, reals, fakes, micros, macros
 
 def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', test_dir = '', image_size=256, lr=3e-4, \
-              batch_size=16, num_workers=8, checkpoint='', resume='', epochs=20, eval_per_iters=-1, \
+              batch_size=16, num_workers=8, checkpoint='', resume='', epochs=20, eval_per_iters=-1, seed=0, \
               adj_brightness=1.0, adj_contrast=1.0, es_metric='val_loss', es_patience=5, model_name="xception", args_txt=""):
-
+    # Generate dataloader train and validation 
+    dataloader_train, dataloader_val, num_samples = generate_dataloader_image_stream(train_dir, val_dir, image_size, batch_size, num_workers)
+    dataloader_test = generate_test_dataloader_image_stream(test_dir, image_size, batch_size, num_workers)
+    
     # Define optimizer (Adam) and learning rate decay
     init_lr = lr
     init_epoch = 0
+    init_step = 0
     if resume != "":
         try:
-            init_epoch = int(resume.split('_')[1])
-            init_lr = lr * (0.8 ** ((init_epoch - 1) // 3))
+            if 'epoch' in checkpoint:
+                init_epoch = int(resume.split('_')[3])
+                init_step = init_epoch * len(dataloader_train)
+                init_lr = lr * (0.8 ** ((init_epoch - 1) // 3))
+                print('Resume epoch: {} - with step: {} - lr: {}'.format(init_epoch, init_step, init_lr))
+            if 'step' in checkpoint:
+                init_step = int(resume.split('_')[3])
+                init_epoch = int(init_step / len(dataloader_train))
+                init_lr = lr * (0.8 ** (init_epoch // 3))
+                print('Resume step: {} - in epoch: {} - lr: {}'.format(init_step, init_epoch, init_lr))              
         except:
             pass
-    print("Init epoch: ", init_epoch)
-    print("Init lr: ", init_lr)
+        
     optimizer = optim.Adam(model.parameters(), lr=init_lr)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones = [3*i for i in range(1, epochs//3 + 1)], gamma = 0.8)
     
     # Define devices
-    device = define_device(seed=0)
-
-    # Generate dataloader train and validation 
-    dataloader_train, dataloader_val, num_samples = generate_dataloader_image_stream(train_dir, val_dir, image_size, batch_size, num_workers)
-    dataloader_test = generate_test_dataloader_image_stream(test_dir, image_size, batch_size, num_workers)
+    device = define_device(seed=seed)
 
     # Define criterion
     criterion = define_criterion(criterion_name, num_samples)
@@ -328,7 +337,7 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
 
     global_loss = 0.0
     global_acc = 0.0
-    global_step = 0
+    global_step = init_step
 
     for epoch in range(init_epoch, epochs):
         print("\n=========================================")
@@ -380,7 +389,7 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
                     test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros = eval_image_stream(model, dataloader_test, device, criterion, adj_brightness=adj_brightness, adj_contrast=adj_brightness)
                     save_result(step_test_writer, log, global_step, global_loss/global_step, global_acc/global_step, test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros, is_epoch=False, phase="test")
                     # Save model:
-                    step_model_saver([val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], step_ckcpoint, model)
+                    step_model_saver(global_step, [val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], step_ckcpoint, model)
                     step_model_saver.save_last_model(step_ckcpoint, model, global_step)
                     model.train()
 
@@ -393,13 +402,14 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
         test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros = eval_image_stream(model, dataloader_test, device, criterion, adj_brightness=adj_brightness, adj_contrast=adj_brightness)
         save_result(epoch_test_writer, log, epoch+1, running_loss/len(dataloader_train), running_acc/len(dataloader_train), test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros, is_epoch=True, phase="test")
         # Save model:
-        epoch_model_saver([val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], epoch_ckcpoint, model)
+        epoch_model_saver(epoch+1, [val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], epoch_ckcpoint, model)
         epoch_model_saver.save_last_model(epoch_ckcpoint, model, epoch+1)
         
         # Reset to the next epoch
         running_loss = 0
         running_acc = 0
         scheduler.step()
+        model.train()
 
         # Early stopping:
         es_cur_score = find_current_earlystopping_score(es_metric, val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2])
@@ -408,7 +418,7 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
             print('Early stopping. Best {}: {:.6f}'.format(es_metric, early_stopping.best_score))
             break
     time.sleep(5)
-    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f}_{:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], epoch_model_saver.best_scores[2], step_model_saver.best_scores[2], args_txt)))
+    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f}_{:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], epoch_model_saver.best_scores[2], step_model_saver.best_scores[2], args_txt if resume == '' else 'resume')))
     return
 
 #############################################
@@ -471,36 +481,44 @@ def eval_dual_stream(model, dataloader, device, criterion, adj_brightness=1.0, a
     return loss, mac_accuracy, mic_accuracy, reals, fakes, micros, macros
     
 def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', test_dir= '', image_size=256, lr=3e-4, \
-              batch_size=16, num_workers=8, checkpoint='', resume='', epochs=30, eval_per_iters=-1, \
+              batch_size=16, num_workers=8, checkpoint='', resume='', epochs=30, eval_per_iters=-1, seed=0, \
               adj_brightness=1.0, adj_contrast=1.0, es_metric='val_loss', es_patience=5, model_name="dual-efficient", args_txt=""):
-
+    
+    # Generate dataloader train and validation 
+    dataloader_train, dataloader_val, num_samples = generate_dataloader_dual_stream(train_dir, val_dir, image_size, batch_size, num_workers)
+    dataloader_test = generate_test_dataloader_dual_stream(test_dir, image_size, 2*batch_size, num_workers)
+    
     # Define optimizer (Adam) and learning rate decay
     init_lr = lr
     init_epoch = 0
+    init_step = 0
     if resume != "":
         try:
-            init_epoch = int(resume.split('_')[1])
-            init_lr = lr * (0.8 ** ((init_epoch - 1) // 3))
+            if 'epoch' in checkpoint:
+                init_epoch = int(resume.split('_')[3])
+                init_step = init_epoch * len(dataloader_train)
+                init_lr = lr * (0.8 ** ((init_epoch - 1) // 3))
+                print('Resume epoch: {} - with step: {} - lr: {}'.format(init_epoch, init_step, init_lr))
+            if 'step' in checkpoint:
+                init_step = int(resume.split('_')[3])
+                init_epoch = int(init_step / len(dataloader_train))
+                init_lr = lr * (0.8 ** (init_epoch // 3))
+                print('Resume step: {} - in epoch: {} - lr: {}'.format(init_step, init_epoch, init_lr))              
         except:
             pass
-    print("Init epoch: ", init_epoch)
-    print("Init lr: ", init_lr)
+
     optimizer = optim.Adam(model.parameters(), lr=init_lr)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones = [3*i for i in range(1, epochs//3 + 1)], gamma = 0.8)
     
     # Define devices
-    device = define_device(seed=0)
-
-    # Generate dataloader train and validation 
-    dataloader_train, dataloader_val, num_samples = generate_dataloader_dual_stream(train_dir, val_dir, image_size, batch_size, num_workers)
-    dataloader_test = generate_test_dataloader_dual_stream(test_dir, image_size, 2*batch_size, num_workers)
+    device = define_device(seed=seed)
         
     # Define criterion
     criterion = define_criterion(criterion_name, num_samples)
     criterion = criterion.to(device)
     
     # Define logging factor:
-    ckc_pointdir, log, batch_writer, epoch_writer_tup, step_writer_tup = define_log_writer(checkpoint, args_txt, (model, model_name, image_size))
+    ckc_pointdir, log, batch_writer, epoch_writer_tup, step_writer_tup = define_log_writer(checkpoint, resume, args_txt, (model, model_name, image_size))
     epoch_ckcpoint, epoch_val_writer, epoch_test_writer = epoch_writer_tup
     step_ckcpoint, step_val_writer, step_test_writer = step_writer_tup
         
@@ -520,7 +538,7 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
 
     global_loss = 0.0
     global_acc = 0.0
-    global_step = 0
+    global_step = init_step
     
     for epoch in range(init_epoch, epochs):
         print("\n=========================================")
@@ -573,7 +591,7 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
                     test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros = eval_dual_stream(model, dataloader_test, device, criterion, adj_brightness=adj_brightness, adj_contrast=adj_brightness)
                     save_result(step_test_writer, log, global_step, global_loss/global_step, global_acc/global_step, test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros, is_epoch=False, phase="test")
                     # Save model:
-                    step_model_saver([val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], step_ckcpoint, model)
+                    step_model_saver(global_step, [val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], step_ckcpoint, model)
                     step_model_saver.save_last_model(step_ckcpoint, model, global_step)
                     model.train()
 
@@ -586,7 +604,7 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
         test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros = eval_dual_stream(model, dataloader_test, device, criterion, adj_brightness=adj_brightness, adj_contrast=adj_brightness)
         save_result(epoch_test_writer, log, epoch+1, running_loss/len(dataloader_train), running_acc/len(dataloader_train), test_loss, test_mac_acc, test_mic_acc, test_reals, test_fakes, test_micros, test_macros, is_epoch=True, phase="test")
         # Save model:
-        epoch_model_saver([val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], epoch_ckcpoint, model)
+        epoch_model_saver(epoch+1, [val_loss, val_mic_acc, test_loss, test_mic_acc, test_reals[2], test_fakes[2], test_macros[2]], epoch_ckcpoint, model)
         epoch_model_saver.save_last_model(epoch_ckcpoint, model, epoch+1)
         
         # Reset to the next epoch
@@ -603,5 +621,5 @@ def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', t
             break
     # Sleep 5 seconds for rename ckcpoint dir:
     time.sleep(5)
-    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f}_{:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], epoch_model_saver.best_scores[2], step_model_saver.best_scores[2], args_txt)))
+    os.rename(src=ckc_pointdir, dst=osp.join(checkpoint, "({:.4f}_{:.4f}_{:.4f}_{:.4f})_{}".format(epoch_model_saver.best_scores[3], step_model_saver.best_scores[3], epoch_model_saver.best_scores[2], step_model_saver.best_scores[2], args_txt if resume == '' else 'resume')))
     return

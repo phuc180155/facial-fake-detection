@@ -48,7 +48,7 @@ def eval_image_stream(model, criterion, test_dir="", image_size=256,\
             inputs, labels = inputs.to(device), labels.float().to(device)
             logps = model.forward(inputs)   # (batch_size, 1)
             logps = logps.squeeze()         # (batch_size, )
-            
+
             # Push predicted output - in [0, 1] to cpu and save in a list
             logps_cpu = logps.cpu().numpy()
             y_pred.extend(logps_cpu.astype(np.float64))
@@ -204,6 +204,6 @@ def eval_dual_stream(model, criterion, test_dir='',image_size=256, \
                                                                                                                 precision_real, recall_real, f1_real,\
                                                                                                                 precision_fake, recall_fake, f1_fake,\
                                                                                                                 micro_precision, micro_recall, micro_f1,\
-                                                                                                                macro_precision, macro_recall, macro_f1))
+                                                                                macro_precision, macro_recall, macro_f1))
 
     return
