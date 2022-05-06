@@ -36,7 +36,7 @@ def parse_args():
     parser_xception = sub_parser.add_parser('xception', help='XceptionNet')
     parser_meso4 = sub_parser.add_parser('meso4', help='MesoNet')
     parser_dual_eff = sub_parser.add_parser('dual_efficient', help="Efficient-Frequency Net")
-    parser_srm_2_stream = sub_parser.add_parser('srm_2_stream', help="SRM 2 stream net from \"Generalizing Face Forgery Detection with High-frequency Features (CVPR 2021).\"")
+    parser_srm_2_stream = sub_parser.add_parser('srm_two_stream', help="SRM 2 stream net from \"Generalizing Face Forgery Detection with High-frequency Features (CVPR 2021).\"")
     # Ablation study
     parser_dual_attn_eff = sub_parser.add_parser('dual_attn_efficient', help="Ablation Study")
     parser_dual_attn_eff.add_argument("--patch_size",type=int,default=7,help="patch_size")
@@ -119,9 +119,10 @@ if __name__ == "__main__":
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters, seed=args.seed,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="capsulenet", args_txt=args_txt)
            
-    elif model == 'srm_2_stream':
+    elif model == 'srm_two_stream':
         from module.train_torch import train_image_stream
-        from model.cnn.srm_2_stream_net.srm_2_stream import Two_Stream_Net
+        from model.cnn.srm_two_stream.twostream import Two_Stream_Net
+        
         model = Two_Stream_Net()
         args_txt = "lr_{}_batch_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.es_metric, args.loss)
         criterion = [args.loss]
