@@ -78,7 +78,7 @@ class ImageGeneratorDualFFT(Dataset):
         y = 0
         if '0_real' in self.data_path[index]:
             y = 0
-        elif '1_df' in self.data_path[index] or '1_f2f' in self.data_path[index] or '1_fs' in self.data_path[index] or '1_nt' in self.data_path[index]:
+        elif '1_df' in self.data_path[index] or '1_f2f' in self.data_path[index] or '1_fs' in self.data_path[index] or '1_nt' in self.data_path[index] or '1_fake' in self.data_path[index]:
             y = 1
         return PIL_img, magnitude_spectrum, y
 

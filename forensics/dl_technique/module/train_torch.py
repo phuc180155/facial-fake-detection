@@ -17,6 +17,7 @@ import torch.backends.cudnn as cudnn
 
 from sklearn import metrics
 from sklearn.metrics import recall_score, accuracy_score, precision_score, log_loss, classification_report, f1_score
+from metrics.metric import calculate_cls_metrics
 
 from utils.Log import Logger
 from utils.EarlyStopping import EarlyStopping
@@ -278,6 +279,7 @@ def eval_image_stream(model ,dataloader, device, criterion, adj_brightness=1.0, 
     mac_accuracy /= len(dataloader)
     # built-in methods for calculating metrics
     mic_accuracy, reals, fakes, micros, macros = calculate_metric(y_label, y_pred_label)
+    calculate_cls_metrics(y_label=np.array(y_label, dtype=np.float64), y_pred_label=np.array(y_pred_label, dtype=np.float64), save=True, print_metric=False)
     return loss, mac_accuracy, mic_accuracy, reals, fakes, micros, macros
 
 def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', test_dir = '', image_size=256, lr=3e-4, \
@@ -317,7 +319,7 @@ def train_image_stream(model, criterion_name=None, train_dir = '', val_dir ='', 
     criterion = criterion.to(device)
     
     # Define logging factor:
-    ckc_pointdir, log, batch_writer, epoch_writer_tup, step_writer_tup = define_log_writer(checkpoint, args_txt, (model, model_name, image_size))
+    ckc_pointdir, log, batch_writer, epoch_writer_tup, step_writer_tup = define_log_writer(checkpoint, resume, args_txt, (model, model_name, image_size))
     epoch_ckcpoint, epoch_val_writer, epoch_test_writer = epoch_writer_tup
     step_ckcpoint, step_val_writer, step_test_writer = step_writer_tup
         
@@ -469,15 +471,11 @@ def eval_dual_stream(model, dataloader, device, criterion, adj_brightness=1.0, a
             y_pred_label.extend(pred_label)
 
     ######## Calculate metrics:
-    if len(y_label) != len(y_pred_label):
-        print(y_label)
-        print(y_pred_label)
-        print(set(y_pred_label) - set(y_label))
-        print("Bug")
     loss /= len(dataloader)
     mac_accuracy /= len(dataloader)
     # built-in methods for calculating metrics
     mic_accuracy, reals, fakes, micros, macros = calculate_metric(y_label, y_pred_label)
+    calculate_cls_metrics(y_label=np.array(y_label, dtype=np.float64), y_pred_label=np.array(y_pred_label, dtype=np.float64), save=True, print_metric=False)
     return loss, mac_accuracy, mic_accuracy, reals, fakes, micros, macros
     
 def train_dual_stream(model, criterion_name=None, train_dir = '', val_dir ='', test_dir= '', image_size=256, lr=3e-4, \

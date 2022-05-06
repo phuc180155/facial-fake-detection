@@ -64,16 +64,25 @@ def calculate_cls_metric(y_label: np.ndarray, y_pred_label: np.ndarray, average=
     f1 = f1_score(y_label, y_pred_label, average=average, pos_label=pos_label)
     return precision, recall, f1
 
-def calculate_cls_metrics(y_label: np.ndarray, y_pred_label: np.ndarray, save=False):
-    if save:
-        save_list_to_file(y_label, file_name='y_label.txt')
-        save_list_to_file(y_pred_label, file_name='y_pred_label.txt')
-        
+def calculate_cls_metrics(y_label: np.ndarray, y_pred_label: np.ndarray, save=False, print_metric=False):   
     accuracy = accuracy_score(y_label, y_pred_label)
     mic_pre, mic_rec, mic_f1 = calculate_cls_metric(y_label, y_pred_label, average='micro')
     mac_pre, mac_rec, mac_f1 = calculate_cls_metric(y_label, y_pred_label, average='macro')
     real_pre, real_rec, real_f1 = calculate_cls_metric(y_label, y_pred_label, average='binary', pos_label=0)
     fake_pre, fake_rec, fake_f1 = calculate_cls_metric(y_label, y_pred_label, average='binary', pos_label=1)
+
+    if 0 in [accuracy, mic_pre, mic_rec, mic_f1, mac_pre, mac_rec, mac_f1, real_pre, real_rec, real_f1, fake_pre, fake_rec, fake_f1] and save:
+        print("Bug appears!")
+        save_list_to_file(y_label, file_name='y_label.txt', overwrite=False)
+        save_list_to_file(y_pred_label, file_name='y_pred_label.txt', overwrite=False)
+        
+    if print_metric:
+        result = 'Customize metrics: '
+        result += "acc: {:.4f} --- ".format(accuracy)
+        result += "real f1-score: {:.4f} --- ".format(real_f1)
+        result += "fake f1-score: {:.4f} --- ".format(fake_f1)
+        result += "avg f1-score: {:.4f} --- ".format(mac_f1)
+        print(result)
     return accuracy, (real_pre, real_rec, real_f1),\
                      (fake_pre, fake_rec, fake_f1),\
                      (mic_pre, mic_rec, mic_f1),\
