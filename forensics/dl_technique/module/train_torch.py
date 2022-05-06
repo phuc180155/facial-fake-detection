@@ -188,7 +188,8 @@ def define_log_writer(checkpoint: str, resume: str, args_txt:str, model: Tuple[t
     if 'dual' in model[1]:
         torchsummary.summary(model[0], [(3, model[2], model[2]), (1, model[2], model[2])], device='cpu')
     else:
-        torchsummary.summary(model[0], (3, model[2], model[2]), device='cpu')
+        if model[1] != 'capsulenet':
+            torchsummary.summary(model[0], (3, model[2], model[2]), device='cpu')
     sys.stdout.close()
     sys.stdout = sys.__stdout__
     

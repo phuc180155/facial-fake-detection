@@ -29,6 +29,10 @@ def parse_args():
     sub_parser = parser.add_subparsers(dest="model", help="Choose model of the available ones:  xception, efficient_dual, ViT, CrossViT, efficient ViT, dual efficient vit...")
     
     ######################## CNN architecture:
+    parser_capsule = sub_parser.add_parser('capsule', help='CapsuleNet')
+    parser_capsule.add_argument("--beta",type=int,required=False,default=0.9,help="Beta for optimizer Adam")
+    parser_capsule.add_argument("--dropout", type=float, required=False, default=0.05)
+    
     parser_xception = sub_parser.add_parser('xception', help='XceptionNet')
     parser_meso4 = sub_parser.add_parser('meso4', help='MesoNet')
     parser_dual_eff = sub_parser.add_parser('dual_efficient', help="Efficient-Frequency Net")
@@ -91,9 +95,6 @@ if __name__ == "__main__":
     # Save args to text:
     if not os.path.exists(args.checkpoint):
         os.makedirs(args.checkpoint)
-    # with open(os.path.join(args.checkpoint, 'args.txt'), 'w') as f:
-    #     json.dump(args.__dict__, f, indent=2)
-    
         
     ################# TRAIN #######################
     if model == "xception":
@@ -110,6 +111,13 @@ if __name__ == "__main__":
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters, seed=args.seed,\
                            adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="exception", args_txt=args_txt)
     
+    elif model == 'capsule':
+        from module.train_two_outclass import train_capsulenet
+        args_txt = "lr_{}_batch_{}_es_{}_beta_{}_dropout_{}".format(args.lr, args.batch_size, args.es_metric, args.beta, args.dropout)
+        train_capsulenet(train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir, gpu_id=args.gpu_id, beta1=args.beta, dropout=args.dropout, image_size=args.image_size, lr=args.lr,\
+                           batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters, seed=args.seed,\
+                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="capsulenet", args_txt=args_txt)
+           
     elif model == 'srm_2_stream':
         from module.train_torch import train_image_stream
         from model.cnn.srm_2_stream_net.srm_2_stream import Two_Stream_Net
