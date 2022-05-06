@@ -37,7 +37,7 @@ class EfficientViT(nn.Module):
     def __init__(self, channels=1280, selected_efficient_net=0,
                  image_size=224,patch_size=7,num_classes=1,dim=1024,
                  depth=6,heads=8,mlp_dim=2048,
-                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15):
+                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15, freeze=0, pool='cls'):
         super().__init__()
 
         self.image_size = image_size
@@ -51,6 +51,7 @@ class EfficientViT(nn.Module):
         self.dim_head = dim_head
         self.dropout_value = dropout
         self.emb_dropout = emb_dropout
+        self.pool = pool
 
         self.output_features_size = {
             128: (4, 4),
@@ -72,13 +73,13 @@ class EfficientViT(nn.Module):
             state_dict = checkpoint.get("state_dict", checkpoint)
             self.efficient_net.load_state_dict({re.sub("^module.", "", k): v for k, v in state_dict.items()},
                                                strict=False)
-
-        for i in range(0, len(self.efficient_net._blocks)):
-            for index, param in enumerate(self.efficient_net._blocks[i].parameters()):
-                if i >= len(self.efficient_net._blocks) - 3:
-                    param.requires_grad = True
-                else:
-                    param.requires_grad = False
+        if freeze:
+            for i in range(0, len(self.efficient_net._blocks)):
+                for index, param in enumerate(self.efficient_net._blocks[i].parameters()):
+                    if i >= len(self.efficient_net._blocks) - 3:
+                        param.requires_grad = True
+                    else:
+                        param.requires_grad = False
 
         # Kích thước của 1 patch
         self.patch_size = patch_size
@@ -138,7 +139,7 @@ class EfficientViT(nn.Module):
 
         x = self.dropout(x)
         x = self.transformer(x)
-        x = self.to_cls_token(x[:, 0])
+        x = self.to_cls_token(x.mean(dim = 1) if self.pool == 'mean' else x[:, 0])
         x = self.mlp_head(x)
         x = self.sigmoid(x)
         return x

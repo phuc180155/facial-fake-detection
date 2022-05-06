@@ -57,6 +57,7 @@ def parse_args():
     # Efficient ViT (CViT)
     parser_efficientvit = sub_parser.add_parser('efficient_vit', help='CrossViT transformer Net')
     parser_efficientvit.add_argument("--patch_size",type=int,default=7,help="patch_size in vit")
+    parser_efficientvit.add_argument("--freeze", type=int, default=0, help="Freeze backbone")
     # SwinViT
     parser_swim_vit = sub_parser.add_parser('swin_vit', help='Swim transformer')
     
@@ -205,9 +206,10 @@ if __name__ == "__main__":
             mlp_dim=args.mlp_dim,
             dropout=dropout,
             emb_dropout=emb_dropout,
+            pool=args.pool
         )
         
-        args_txt = "lr_{}_batch_{}_pool_{}_patch_h_{}_d_{}_es_{}_loss_{}".format(args.lr, args.batch_size, args.pool, args.patch_size, args.heads, args.depth, args.es_metric, args.loss)
+        args_txt = "batch_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.batch_size, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)
