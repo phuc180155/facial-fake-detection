@@ -64,10 +64,21 @@ def parse_args():
     # My refined model:
     parser_dual_eff_vit = sub_parser.add_parser('dual_efficient_vit', help='My model')
     parser_dual_eff_vit.add_argument("--patch_size",type=int,default=7,help="patch_size in vit")
-    parser_dual_eff_vit.add_argument("--version",type=str, default="cross_attention-freq-add", required=True, help="Some changes in model")
-    parser_dual_eff_vit.add_argument("--weight", type=float, default=1, help="Weight for frequency vectors")
-    parser_dual_eff_vit.add_argument("--freeze", type=int, default=0, help="Freeze backbone")
-    
+    parser_dual_eff_vit.add_argument("--version",type=str, default="ca-fadd-0.8", required=False, help="Some changes in model")
+    parser_dual_eff_vit.add_argument("--backbone",type=str, default="efficient_net", required=False, help="Type of backbone")
+    parser_dual_eff_vit.add_argument("--pretrained",type=int, default=1, required=False, help="Load pretrained backbone")
+    parser_dual_eff_vit.add_argument("--unfreeze_blocks", type=int, default=-1, help="Unfreeze blocks in backbone")
+    parser_dual_eff_vit.add_argument("--normalize_ifft", type=int, default=1, help="Normalize after ifft")
+    parser_dual_eff_vit.add_argument("--flatten_type", type=str, default='patch', help="in ['patch', 'channel']")
+    parser_dual_eff_vit.add_argument("--conv_attn", type=int, default=0, help="")   
+    parser_dual_eff_vit.add_argument("--ratio", type=int, default=1, help="")   
+    parser_dual_eff_vit.add_argument("--qkv_embed", type=int, default=1, help="")   
+    parser_dual_eff_vit.add_argument("--inner_ca_dim", type=int, default=0, help="") 
+    parser_dual_eff_vit.add_argument("--init_ca_weight", type=int, default=1, help="") 
+    parser_dual_eff_vit.add_argument("--prj_out", type=int, default=0, help="")
+    parser_dual_eff_vit.add_argument("--act", type=str, default='relu', help="")
+    parser_dual_eff_vit.add_argument("--position_embed", type=int, default=1, help="")
+ 
     parser_dual_eff_vit_v2 = sub_parser.add_parser('dual_efficient_vit_v2', help='My model')
     parser_dual_eff_vit_v2.add_argument("--patch_size",type=int,default=7,help="patch_size in vit")
     parser_dual_eff_vit_v2.add_argument("--version",type=str, default="cross_attention-freq-add", required=True, help="Some changes in model")
@@ -209,7 +220,6 @@ if __name__ == "__main__":
             emb_dropout=emb_dropout,
             pool=args.pool
         )
-        
         args_txt = "batch_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.batch_size, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
         criterion = [args.loss]
         if args.gamma:
@@ -218,7 +228,7 @@ if __name__ == "__main__":
         
         train_image_stream(model, criterion_name=criterion, train_dir=args.train_dir, val_dir=args.val_dir, test_dir=args.test_dir,  image_size=args.image_size, lr=args.lr,\
                            batch_size=args.batch_size, num_workers=args.workers, checkpoint=args.checkpoint, resume=args.resume, epochs=args.n_epochs, eval_per_iters=args.eval_per_iters, seed=args.seed,\
-                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="exception", args_txt=args_txt)
+                           adj_brightness=adj_brightness, adj_contrast=adj_contrast, es_metric=args.es_metric, es_patience=args.es_patience, model_name="efficient-vit", args_txt=args_txt)
         
     elif model == "dual_efficient_vit":
         from module.train_torch import train_dual_stream
@@ -226,23 +236,22 @@ if __name__ == "__main__":
         
         dropout = 0.15
         emb_dropout = 0.15
-        model = DualEfficientViT(
-            image_size=args.image_size,
-            patch_size=args.patch_size,
-            num_classes=1,
-            dim=args.dim,
-            depth=args.depth,
-            heads=args.heads,
-            mlp_dim=args.mlp_dim,
-            dropout=dropout,
-            emb_dropout=emb_dropout,
-            version=args.version,
-            weight=args.weight,
-            freeze=args.freeze,
-            pool=args.pool
-        )
+        model = DualEfficientViT(image_size=args.image_size, num_classes=1, dim=args.dim,\
+                                depth=args.depth, heads=args.heads, mlp_dim=args.mlp_dim,\
+                                dim_head=args.dim_head, dropout=0.15, emb_dropout=0.15,\
+                                backbone=args.backbone, pretrained=bool(args.pretrained),\
+                                normalize_ifft=args.normalize_ifft,\
+                                flatten_type=args.flatten_type,\
+                                conv_attn=bool(args.conv_attn), ratio=args.ratio, qkv_embed=bool(args.qkv_embed), inner_ca_dim=args.inner_ca_dim, init_ca_weight=bool(args.init_ca_weight), prj_out=bool(args.prj_out), act=args.act,\
+                                patch_size=args.patch_size, position_embed=bool(args.position_embed), pool=args.pool,\
+                                version=args.version, unfreeze_blocks=args.unfreeze_blocks)
         
-        args_txt = "batch_{}_v_{}_w_{}_pool_{}_lr_{}_patch_{}_h_{}_d_{}_es_{}_loss_{}_freeze_{}".format(args.batch_size, args.version, args.weight, args.pool, args.lr, args.patch_size, args.heads, args.depth, args.es_metric, args.loss, args.freeze)
+        args_txt = "lr_{}_batch_{}_es_{}_loss_{}_v_{}_pool_{}_bb_{}_pre_{}_unf_{}_".format(args.lr, args.batch_size, args.es_metric, args.loss, args.version, args.pool, args.backbone, args.pretrained, args.unfreeze_blocks)
+        args_txt += "norm_{}_".format(args.normalize_ifft)
+        args_txt += "flat_{}_".format(args.flatten_type)
+        args_txt += "convattn_{}_r_{}_qkvemb_{}_incadim_{}_initw_{}_prj_{}_act_{}_".format(args.conv_attn, args.ratio, args.qkv_embed, args.inner_ca_dim, args.init_ca_weight, args.prj_out, args.act)
+        args_txt += "patch_{}".format(args.patch_size)
+        print(len(args_txt))
         criterion = [args.loss]
         if args.gamma:
             args_txt += "gamma_{}".format(args.gamma)

@@ -12,109 +12,48 @@ import torch.nn.functional as F
 
 import re, math
 from model.vision_transformer.vit import Transformer
+from pytorchcv.model_provider import get_model
 
+class CrossAttention(nn.Module):
+    def __init__(self, in_dim, inner_dim=0, prj_out=False, qkv_embed=True, init_weight=True):
+        super(CrossAttention, self).__init__()
+        self.in_dim = in_dim
+        self.qkv_embed = qkv_embed
+        self.init_weight = init_weight
 
-class DualEfficientViT(nn.Module):
-    def __init__(self, channels=1280,\
-                 image_size=224,patch_size=7,num_classes=1,dim=1024,\
-                 depth=6,heads=8,mlp_dim=2048,\
-                 emb_dim=32, dim_head=64,dropout=0.15,emb_dropout=0.15,version="cross_attention-spatial-cat",weight=0.5,freeze=0, pool='cls'):  
-        super(DualEfficientViT, self).__init__()
+        if self.qkv_embed:
+            inner_dim = self.in_dim if inner_dim == 0 else inner_dim
+            self.to_k = nn.Linear(in_dim, inner_dim, bias=False)
+            self.to_v = nn.Linear(in_dim, inner_dim, bias = False)
+            self.to_q = nn.Linear(in_dim, inner_dim, bias = False)
+            self.to_out = nn.Sequential(
+                nn.Linear(inner_dim, in_dim),
+                nn.Dropout(p=0.1)
+            ) if prj_out else nn.Identity()
 
-        self.image_size = image_size
-        self.patch_size = patch_size
-        self.num_classes = num_classes
-        self.dim = dim
-        self.depth = depth
-        self.heads = heads
-        self.mlp_dim = mlp_dim
-        self.emb_dim = emb_dim
-        self.dim_head = dim_head
-        self.dropout_value = dropout
-        self.emb_dropout = emb_dropout
-        self.pool = pool
-        
-        self.features_size = {
-            128: (4, 4),
-            224: (7, 7),
-            256: (8, 8)
-        }
-        
-        # "cross_attention-spatial-cat": sử dụng cross-attention, cat với spatial vectors output
-        # "cross_attention-spatial-add": sử dụng cross-attention, add với spatial vectors output
-        # "cross_attention-freq-cat": sử dụng cross-attention, cat với freq vectors
-        # "cross_attention-freq-add": sử dụng cross-attention, add với freq vectors
-        # "merge-add": cộng thẳng 2 vectors spatial và freq, có weight: spatial + weight*freq
-        # "merge-cat": cat thẳng 2 vectors spatial và freq, có weight: spatial + weight*freq
-        self.version = version
-        self.weight = weight
+        if self.init_weight:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    nn.init.xavier_normal_(m.weight.data, gain=0.02)
 
-        self.spatial_extractor = self.get_feature_extractor(freeze=freeze, num_classes=num_classes, in_channels=3)   # efficient_net-b0, return shape (1280, 8, 8) or (1280, 7, 7)
-        self.freq_extractor = self.get_feature_extractor(freeze=freeze, num_classes=num_classes, in_channels=1)
-
-        ############################# Xét 2 stream hiện tại là như nhau
-        # Kích thước của 1 patch
-        self.patch_size = patch_size
-    
-        # Số lượng patches
-        self.num_patches = int((self.features_size[image_size][0] * self.features_size[image_size][1]) / (self.patch_size * self.patch_size))
-        # Patch_dim = P^2 * C
-        self.patch_dim = channels * (self.patch_size ** 2)
-
-        # print("Num patches: ", self.num_patches)
-        # print("Patch dim: ", self.patch_dim)
-
-        # Embed vị trí cho từng patch
-        self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches+1, self.dim))
-        # self.pos_embedding_1 = nn.Parameter(torch.randn(1, self.num_patches, self.dim))
-        # self.pos_embedding_2 = nn.Parameter(torch.randn(1, self.num_patches, self.dim))
-        # self.pos_embedding_3 = nn.Parameter(torch.randn(1, self.num_patches, self.dim))
-
-        # Đưa flatten vector của feature maps về chiều cố định của vector trong transformer.
-        # self.patch_to_embedding_1 = nn.Linear(self.patch_dim, self.dim)
-        # self.patch_to_embedding_2 = nn.Linear(self.patch_dim, self.dim)
-
-        # Giảm chiều vector sau concat 2*patch_dim về D:
-        self.patch_to_embedding_cat = nn.Linear(2*self.patch_dim, self.dim)
-        self.patch_to_embedding_add = nn.Linear(self.patch_dim, self.dim)
-
-        # Thêm 1 embedding vector cho classify token:
-        self.cls_token = nn.Parameter(torch.randn(1, 1, self.dim))
-
-        self.dropout = nn.Dropout(self.emb_dropout)
-        self.transformer = Transformer(self.dim, self.depth, self.heads, self.dim_head, self.mlp_dim, self.dropout_value)
-
-        self.to_cls_token = nn.Identity()
-
-        self.mlp_head = nn.Sequential(
-            nn.Linear(self.dim, self.mlp_dim),
-            nn.ReLU(),
-            nn.Linear(self.mlp_dim, self.num_classes)
-        )
-        self.sigmoid = nn.Sigmoid()
-
-    def get_feature_extractor(self, architecture="efficient_net", freeze=0, pretrained="", num_classes=1, in_channels=3):
-        extractor = None
-        if architecture == "efficient_net":
-            if pretrained == "":
-                extractor = EfficientNet.from_pretrained('efficientnet-b0', num_classes=num_classes,in_channels = in_channels)
-            else:
-                extractor = EfficientNet.from_pretrained('efficientnet-b7', num_classes=num_classes,in_channels = in_channels)
-                # Load checkpoint
-                checkpoint = torch.load(pretrained, map_location="cpu")
-                state_dict = checkpoint.get("state_dict", checkpoint)
-                # Load weights
-                extractor.load_state_dict({re.sub("^module.", "", k): v for k, v in state_dict.items()}, strict=False)
-
-            if freeze:
-            # Freeze the first (num_blocks - 3) blocks and unfreeze the rest 
-                for i in range(0, len(extractor._blocks)):
-                    for index, param in enumerate(extractor._blocks[i].parameters()):
-                        if i >= len(extractor._blocks) - 3:
-                            param.requires_grad = True
-                        else:
-                            param.requires_grad = False
-        return extractor
+    def forward(self, x, y, z):
+        """
+            x ~ rgb_vectors: (b, n, in_dim)
+            y ~ freq_vectors: (b, n, in_dim)
+            z ~ freq_vectors: (b, n, in_dim)
+            Returns:
+                attn_weight: (b, n, n)
+                attn_output: (b, n, in_dim)
+        """
+        if self.qkv_embed:
+            q = self.to_q(x)
+            k = self.to_k(y)
+            v = self.to_v(z)
+        else:
+            q, k, v = x, y, z
+        out, attn = self.scale_dot(q, k, v, dropout_p=0.05)
+        out = self.to_out(out)
+        return out, attn
 
     """
         Get from torch.nn.MultiheadAttention
@@ -135,93 +74,208 @@ class DualEfficientViT(nn.Module):
         output = torch.bmm(attn, v)
         return output, attn
 
-    def cross_attention(self, spatials, ifreqs):
-        """
-            spatials: (B, N, D) --> Query,
-            freqs: (B, N, D) --> Key
-            output: 
-        """
-        emb_dim = spatials.shape[2]
-        assert emb_dim == ifreqs.shape[2]
-        attn_outputs, attn_weights = self.scale_dot(spatials, ifreqs, ifreqs)
-        return attn_outputs, attn_weights
+class DualEfficientViT(nn.Module):
+    def __init__(self, \
+                image_size=224, num_classes=1, dim=1024,\
+                depth=6, heads=8, mlp_dim=2048,\
+                dim_head=64, dropout=0.15, emb_dropout=0.15,\
+                backbone='xception_net', pretrained=True,\
+                normalize_ifft=True,\
+                flatten_type='patch',\
+                conv_attn=False, ratio=5, qkv_embed=True, init_ca_weight=True, prj_out=False, inner_ca_dim=512, act='none',\
+                patch_size=7, position_embed=False, pool='cls',\
+                version='ca-fcat-0.5', unfreeze_blocks=-1):  
+        super(DualEfficientViT, self).__init__()
 
-
-    def forward(self, spatial_imgs, frequency_imgs):
-        p = self.patch_size
-        # Extract features
-        spatial_features = self.spatial_extractor.extract_features(spatial_imgs)                 # shape (batchsize, 1280, 8, 8)
-        freq_features = self.freq_extractor.extract_features(frequency_imgs)                     # shape (batchsize, 1280, 8, 8)conda
-        ifreq_features = torch.log(torch.abs(torch.fft.ifft2(torch.fft.ifftshift(freq_features))) + 1e-10)  # Hơi ảo???
-        # print(ifreq_features.shape)
-        # assert(ifreq_features.shape == freq_features.shape)
-        # print("Features shape: ", spatial_features.shape, freq_features.shape)
-
-        # Flatten to vector:
-        spatial_vectors = rearrange(spatial_features, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p, p2=p)
-        freq_vectors = rearrange(freq_features, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p, p2=p)
-        ifreq_vectors = rearrange(ifreq_features, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p, p2=p)
-
-        assert self.patch_dim == spatial_vectors.shape[2]
-        assert self.patch_dim == freq_vectors.shape[2]
-
-        embed = None
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.num_classes = num_classes
+        self.dim = dim
+        self.depth = depth
+        self.heads = heads
+        self.mlp_dim = mlp_dim
+        self.dim_head = dim_head
+        self.dropout_value = dropout
+        self.emb_dropout = emb_dropout
         
-        if "cross_attention" in self.version:          # Merge using cross-attention  
-            ########## Patch embedding and add position embedding to each domain:
-            # spatial_vectors = self.patch_to_embedding_1(spatial_vectors)
-            # spatial_vectors += self.pos_embedding_1
-
-            # freq_vectors = self.patch_to_embedding_2(freq_vectors)
-            # freq_vectors += self.pos_embedding_2
-
-            # ifreq_vectors = self.patch_to_embedding_2(ifreq_vectors)
-            # ifreq_vectors += self.pos_embedding_2  
-            # print("Step 2 shape: ", spatial_vectors.shape, freq_vectors.shape)  # (batchsize, num_patches, D)
-            ##########
+        self.backbone = backbone
+        self.features_size = {
+            'efficient_net': (1280, 4, 4),
+            'xception_net': (2048, 4, 4),
+        }
+        self.out_ext_channels = self.features_size[backbone][0]
         
-            # Cal attn weight between ifreq and spatial vectors:
-            # Cross-attention (spatial-decoder, ifreq-encoder)
-            attn_outputs, attn_weights = self.cross_attention(spatial_vectors, ifreq_vectors)     # Shape: (), (batchsize, num_patches, num_patches)
-            if "freq" in self.version:          # Get attention in frequency domain:
-                out_attn = torch.bmm(attn_weights, freq_vectors)
-            elif "spatial" in self.version:     # Get attention in spatial domain:
-                out_attn = torch.bmm(attn_weights, ifreq_vectors)
-                ### Check correct bmm:
-                # print(torch.eq(attn_outputs, out_attn))
-            else:
-                pass
+        self.flatten_type = flatten_type # in ['patch', 'channel']
+        self.version = version  # in ['ca-rgb_cat-0.5', 'ca-freq_cat-0.5']
+        self.position_embed = position_embed
+        self.pool = pool
+        self.conv_attn = conv_attn
+        self.activation = self.get_activation(act)
 
-            # Concat or add and linear
-            # print("Spatial vectors: ", spatial_vectors.shape)
-            # print(spatial_vectors)
-            # print("Output attention: ", out_attn.shape)
-            # print(out_attn)
-            if "add" in self.version:
-                out = torch.add(spatial_vectors, self.weight * out_attn)
-                # print("Out", out)
-                embed = self.patch_to_embedding_add(out)                 # Shape: (batchsize, num_patches, patch_dim) => (batchsize, num_patches, dim)
-            elif "cat" in self.version:
-                out = torch.cat([spatial_vectors, self.weight * out_attn], dim=2)
-                embed = self.patch_to_embedding_cat(out)                 # Shape: (batchsize, num_patches, 2*patch_dim) => (batchsize, num_patches, dim)
-            else:
-                pass
-        else:   # Merge directly
-            if "add" in self.version:
-                out = torch.add(spatial_vectors, self.weight * freq_vectors)
-                embed = self.patch_to_embedding_add(out)                # Shape: (batchsize, num_patches, patch_dim) => (batchsize, num_patches, dim)
-            elif "cat" in self.version:
-                out = torch.cat([spatial_vectors, self.weight * freq_vectors], dim=2)
-                embed = self.patch_to_embedding_cat(out)                # Shape: (batchsize, num_patches, patch_dim) => (batchsize, num_patches, dim)
-            else:
-                pass
-            
-        # print("Embeded shape: ", embed.shape)
+        self.rgb_extractor = self.get_feature_extractor(architecture=backbone, pretrained=pretrained, unfreeze_blocks=unfreeze_blocks, num_classes=num_classes, in_channels=3)   # efficient_net-b0, return shape (1280, 8, 8) or (1280, 7, 7)
+        self.freq_extractor = self.get_feature_extractor(architecture=backbone, pretrained=pretrained, unfreeze_blocks=unfreeze_blocks, num_classes=num_classes, in_channels=1)     
+        self.normalize = nn.BatchNorm2d(num_features=self.out_ext_channels) if normalize_ifft else nn.Identity()
+        ############################# PATCH CONFIG ################################
+        
+        if self.flatten_type == 'patch':
+            # Kích thước của 1 patch
+            self.patch_size = patch_size
+            # Số lượng patches
+            self.num_patches = int((self.features_size[backbone][1] * self.features_size[backbone][2]) / (self.patch_size * self.patch_size))
+            # Patch_dim = P^2 * C
+            self.patch_dim = self.out_ext_channels//ratio * (self.patch_size ** 2)
 
+        ############################# CROSS ATTENTION #############################
+        if self.flatten_type == 'patch':
+            self.in_dim = self.patch_dim
+        else:
+            self.in_dim = int(self.features_size[backbone][1] * self.features_size[backbone][2])
+        if self.conv_attn:
+            self.query_conv = nn.Conv2d(in_channels=self.out_ext_channels, out_channels=self.out_ext_channels//ratio, kernel_size=1)
+            self.key_conv = nn.Conv2d(in_channels=self.out_ext_channels, out_channels=self.out_ext_channels//ratio, kernel_size=1)
+            self.value_conv = nn.Conv2d(in_channels=self.out_ext_channels, out_channels=self.out_ext_channels//ratio, kernel_size=1)
+
+        self.CA = CrossAttention(in_dim=self.in_dim, inner_dim=inner_ca_dim, prj_out=prj_out, qkv_embed=qkv_embed, init_weight=init_ca_weight)
+
+        ############################# VIT #########################################
+        # Number of vectors:
+        self.num_vecs = self.num_patches if self.flatten_type == 'patch' else self.out_ext_channels//ratio
+        # Embed vị trí cho từng vectors (nếu chia theo patch):
+        self.pos_embedding = nn.Parameter(torch.randn(1, self.num_vecs+1, self.dim))
+        # Giảm chiều vector sau concat 2*patch_dim về D:
+        if 'cat' in self.version:
+            self.embedding = nn.Linear(2 * self.in_dim, self.dim)
+        else:
+            self.embedding = nn.Linear(self.in_dim, self.dim)
+
+        # Thêm 1 embedding vector cho classify token:
+        self.cls_token = nn.Parameter(torch.randn(1, 1, self.dim))
+        self.dropout = nn.Dropout(self.emb_dropout)
+        self.transformer = Transformer(self.dim, self.depth, self.heads, self.dim_head, self.mlp_dim, self.dropout_value)
+        self.to_cls_token = nn.Identity()
+        self.mlp_head = nn.Sequential(
+            nn.Linear(self.dim, self.mlp_dim),
+            nn.ReLU(),
+            nn.Linear(self.mlp_dim, self.num_classes)
+        )
+        self.sigmoid = nn.Sigmoid()
+
+    def get_activation(self, act):
+        if act == 'relu':
+            activation = nn.ReLU(inplace=True)
+        elif act == 'tanh':
+            activation = nn.Tanh()
+        else:
+            activation = None
+        return activation
+
+    def get_feature_extractor(self, architecture="efficient_net", unfreeze_blocks=-1, pretrained="", num_classes=1, in_channels=3):
+        extractor = None
+        if architecture == "efficient_net":
+            extractor = EfficientNet.from_pretrained('efficientnet-b0', num_classes=num_classes,in_channels = in_channels)
+            if unfreeze_blocks != -1:
+                # Freeze the first (num_blocks - 3) blocks and unfreeze the rest 
+                for i in range(0, len(extractor._blocks)):
+                    for index, param in enumerate(extractor._blocks[i].parameters()):
+                        if i >= len(extractor._blocks) - unfreeze_blocks:
+                            param.requires_grad = True
+                        else:
+                            param.requires_grad = False
+        
+        if architecture == 'xception_net':
+            xception = get_model("xception", pretrained=bool(pretrained))
+            extractor = nn.Sequential(*list(xception.children())[:-1])
+            extractor[0].final_block.pool = nn.Identity()
+            if in_channels != 3:
+                extractor[0].init_block.conv1.conv = nn.Conv2d(1, 32, kernel_size=(3, 3), stride=(2, 2), bias=False)
+            if unfreeze_blocks != -1:
+                blocks = len(extractor[0].children())
+                print("Number of blocks in xception: ", len(blocks))
+                for i, block in enumerate(extractor[0].children()):
+                    if i >= blocks - unfreeze_blocks:
+                        for param in block.parameters():
+                            param.requires_grad = True
+                    else:
+                        for param in block.parameters():
+                            param.requires_grad = False
+        return extractor
+
+    def flatten_to_vectors(self, feature):
+        vectors = None
+        if self.flatten_type == 'patch':
+            vectors = rearrange(feature, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=self.patch_size, p2=self.patch_size)
+        elif self.flatten_type == 'channel':
+            vectors = rearrange(feature, 'b c h w -> b c (h w)')
+        else:
+            pass
+        return vectors
+
+    def ifft(self, freq_feature):
+        ifreq_feature = torch.log(torch.abs(torch.fft.ifft2(torch.fft.ifftshift(freq_feature))) + 1e-10)  # Hơi ảo???
+        ifreq_feature = self.normalize(ifreq_feature)
+        return ifreq_feature
+
+    def fusion(self, rgb, out_attn):
+        """
+        Arguments:
+            rgb --      b, n, d
+            out_attn -- b, n, d
+        """
+        weight = float(self.version.split('-')[-1])
+        if 'cat' in self.version:
+            out = torch.cat([rgb, weight * out_attn], dim=2)
+        elif 'add' in self.version:
+            out = torch.add(rgb, weight * out_attn)
+        return out
+
+    def extract_feature(self, rgb_imgs, freq_imgs):
+        if self.backbone == 'efficient_net':
+            rgb_features = self.rgb_extractor.extract_features(rgb_imgs)                 # shape (batchsize, 1280, 8, 8)
+            freq_features = self.freq_extractor.extract_features(freq_imgs)              # shape (batchsize, 1280, 4, 4)
+        else:
+            rgb_features = self.rgb_extractor(rgb_imgs)
+            freq_features = self.freq_extractor(freq_imgs)
+        return rgb_features, freq_features
+
+    def forward(self, rgb_imgs, freq_imgs):
+        rgb_features, freq_features = self.extract_feature(rgb_imgs, freq_imgs)
+        ifreq_features = self.ifft(freq_features)
+        # print("Features shape: ", rgb_features.shape, freq_features.shape, ifreq_features.shape)
+
+        # Turn to q, k, v if use conv-attention, and then flatten to vector:
+        if self.conv_attn:
+            rgb_query = self.query_conv(rgb_features)
+            freq_value = self.value_conv(freq_features)
+            ifreq_key = self.key_conv(ifreq_features)
+            ifreq_value = self.value_conv(ifreq_features)
+        else:
+            rgb_query = rgb_features
+            freq_value = freq_features
+            ifreq_key = ifreq_features
+            ifreq_value = ifreq_features
+        # print("Q K V shape: ", rgb_query.shape, freq_value.shape, ifreq_key.shape, ifreq_value.shape)
+        rgb_query_vectors = self.flatten_to_vectors(rgb_query)
+        freq_value_vectors = self.flatten_to_vectors(freq_value)
+        ifreq_key_vectors = self.flatten_to_vectors(ifreq_key)
+        ifreq_value_vectors = self.flatten_to_vectors(ifreq_value)
+        # print("Vectors shape: ", rgb_query_vectors.shape, freq_value_vectors.shape, ifreq_key_vectors.shape, ifreq_value_vectors.shape)
+
+        ##### Cross attention and fusion:
+        out, attn_weight = self.CA(rgb_query_vectors, ifreq_key_vectors, ifreq_value_vectors)
+        attn_out = torch.bmm(attn_weight, freq_value_vectors)
+        fusion_out = self.fusion(rgb_query_vectors, attn_out)
+        if self.activation is not None:
+            fusion_out = self.activation(fusion_out)
+        # print("Fusion shape: ", fusion_out.shape)
+        embed = self.embedding(fusion_out)
+        # print("Inner ViT shape: ", embed.shape)
+
+        ##### Forward to ViT
         # Expand classify token to batchsize and add to patch embeddings:
         cls_tokens = self.cls_token.expand(embed.shape[0], -1, -1)
-        x = torch.cat((cls_tokens, embed), dim=1)   # (batchsize, num_patches+1, dim)
-        x += self.pos_embedding
+        x = torch.cat((cls_tokens, embed), dim=1)   # (batchsize, in_dim+1, dim)
+        if self.position_embed:
+            x += self.pos_embedding
         x = self.dropout(x)
         x = self.transformer(x)
         x = self.to_cls_token(x.mean(dim = 1) if self.pool == 'mean' else x[:, 0])
@@ -229,9 +283,18 @@ class DualEfficientViT(nn.Module):
         x = self.sigmoid(x)
         return x
 
+from torchsummary import summary
 if __name__ == '__main__':
-    x = torch.ones(32, 3, 256, 256)
-    y = torch.ones(32, 1, 256, 256)
-    model_ = DualEfficientViT(image_size=256, patch_size=2)
+    x = torch.ones(32, 3, 128, 128)
+    y = torch.ones(32, 1, 128, 128)
+    model_ = DualEfficientViT(  image_size=128, num_classes=1, dim=1024,\
+                                depth=6, heads=8, mlp_dim=2048,\
+                                dim_head=64, dropout=0.15, emb_dropout=0.15,\
+                                backbone='xception_net', pretrained=True,\
+                                normalize_ifft=True,\
+                                flatten_type='patch',\
+                                conv_attn=True, ratio=8, qkv_embed=True, inner_ca_dim=0, init_ca_weight=True, prj_out=False, act='none',\
+                                patch_size=1, position_embed=False, pool='cls',\
+                                version='ca-fcat-0.5', unfreeze_blocks=-1)
     out = model_(x, y)
     print(out.shape)

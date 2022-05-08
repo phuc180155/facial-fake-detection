@@ -1,0 +1,366 @@
+Sequential(
+  (0): Sequential(
+    (init_block): XceptionInitBlock(
+      (conv1): ConvBlock(
+        (conv): Conv2d(3, 32, kernel_size=(3, 3), stride=(2, 2), bias=False)
+        (bn): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (activ): ReLU(inplace=True)
+      )
+      (conv2): ConvBlock(
+        (conv): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), bias=False)
+        (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (activ): ReLU(inplace=True)
+      )
+    )
+    (stage1): Sequential(
+      (unit1): XceptionUnit(
+        (identity_conv): ConvBlock(
+          (conv): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (conv): DwsConv(
+              (dw_conv): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=64, bias=False)
+              (pw_conv): Conv2d(64, 128, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128, bias=False)
+              (pw_conv): Conv2d(128, 128, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (pool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+        )
+      )
+    )
+    (stage2): Sequential(
+      (unit1): XceptionUnit(
+        (identity_conv): ConvBlock(
+          (conv): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128, bias=False)
+              (pw_conv): Conv2d(128, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256, bias=False)
+              (pw_conv): Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (pool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+        )
+      )
+    )
+    (stage3): Sequential(
+      (unit1): XceptionUnit(
+        (identity_conv): ConvBlock(
+          (conv): Conv2d(256, 728, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256, bias=False)
+              (pw_conv): Conv2d(256, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (pool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+        )
+      )
+      (unit2): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit3): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit4): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit5): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit6): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit7): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit8): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (unit9): XceptionUnit(
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block3): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+    )
+    (stage4): Sequential(
+      (unit1): XceptionUnit(
+        (identity_conv): ConvBlock(
+          (conv): Conv2d(728, 1024, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (bn): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+        (body): Sequential(
+          (block1): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 728, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(728, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (block2): DwsConvBlock(
+            (activ): ReLU()
+            (conv): DwsConv(
+              (dw_conv): Conv2d(728, 728, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=728, bias=False)
+              (pw_conv): Conv2d(728, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            )
+            (bn): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+          (pool): MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
+        )
+      )
+    )
+    (final_block): XceptionFinalBlock(
+      (conv1): DwsConvBlock(
+        (conv): DwsConv(
+          (dw_conv): Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1024, bias=False)
+          (pw_conv): Conv2d(1024, 1536, kernel_size=(1, 1), stride=(1, 1), bias=False)
+        )
+        (bn): BatchNorm2d(1536, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (conv2): DwsConvBlock(
+        (activ): ReLU()
+        (conv): DwsConv(
+          (dw_conv): Conv2d(1536, 1536, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=1536, bias=False)
+          (pw_conv): Conv2d(1536, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)
+        )
+        (bn): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (activ): ReLU(inplace=True)
+      (pool): Identity()
+    )
+  )
+)

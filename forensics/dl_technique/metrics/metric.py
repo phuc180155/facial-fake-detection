@@ -73,8 +73,8 @@ def calculate_cls_metrics(y_label: np.ndarray, y_pred_label: np.ndarray, save=Fa
 
     if 0 in [accuracy, mic_pre, mic_rec, mic_f1, mac_pre, mac_rec, mac_f1, real_pre, real_rec, real_f1, fake_pre, fake_rec, fake_f1] and save:
         print("Bug appears!")
-        save_list_to_file(y_label, file_name='y_label.txt', overwrite=False)
-        save_list_to_file(y_pred_label, file_name='y_pred_label.txt', overwrite=False)
+        save_list_to_file(y_label, file_name='y_label.txt', overwrite=True)
+        save_list_to_file(y_pred_label, file_name='y_pred_label.txt', overwrite=True)
         
     if print_metric:
         result = 'Customize metrics: '
